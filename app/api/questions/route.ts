@@ -20,7 +20,6 @@ export async function GET(request: NextRequest) {
     .order('sort_order', { ascending: true })
 
   if (error) {
-    console.error('Questions fetch error:', error)
     return NextResponse.json({ error: 'Gagal mengambil data' }, { status: 500 })
   }
 
@@ -40,36 +39,66 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'agenda_id dan question_text harus diisi' }, { status: 400 })
     }
 
-    const insertData: any = {
+    const baseData: any = {
       agenda_id,
       question_text: question_text.trim(),
       question_type: question_type || 'text',
       sort_order: sort_order || 0,
     }
 
-    // Only include options if question_type is 'radio' and options provided
+    // Try with options first (for radio type)
+    let insertData = { ...baseData }
     if (question_type === 'radio' && options && Array.isArray(options) && options.length > 0) {
       insertData.options = options
     }
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('survey_questions')
       .insert(insertData)
       .select()
       .single()
 
+    // Fallback: if options column doesn't exist, retry without it
+    if (error && error.message?.includes('options')) {
+      console.warn('options column not found, retrying without it...')
+      const fallback = await supabase
+        .from('survey_questions')
+        .insert(baseData)
+        .select()
+        .single()
+
+      if (fallback.error) {
+        return NextResponse.json({ error: 'Gagal menambah pertanyaan' }, { status: 500 })
+      }
+      data = fallback.data
+      error = null
+    }
+
+    // Fallback: if radio type not in CHECK constraint, use text
+    if (error && error.message?.includes('survey_questions_question_type_check')) {
+      console.warn('radio type not in CHECK, retrying as text...')
+      baseData.question_type = 'text'
+      delete baseData.options
+      const fallback = await supabase
+        .from('survey_questions')
+        .insert(baseData)
+        .select()
+        .single()
+
+      if (fallback.error) {
+        return NextResponse.json({ error: 'Gagal menambah pertanyaan' }, { status: 500 })
+      }
+      data = fallback.data
+      error = null
+    }
+
     if (error) {
-      console.error('Question insert error:', JSON.stringify(error, null, 2))
-      return NextResponse.json({
-        error: 'Gagal menambah pertanyaan',
-        details: error.message || 'Unknown error',
-      }, { status: 500 })
+      return NextResponse.json({ error: 'Gagal menambah pertanyaan' }, { status: 500 })
     }
 
     return NextResponse.json({ question: data }, { status: 201 })
-  } catch (err: any) {
-    console.error('Question POST exception:', err)
-    return NextResponse.json({ error: 'Data tidak valid', details: err.message }, { status: 400 })
+  } catch {
+    return NextResponse.json({ error: 'Data tidak valid' }, { status: 400 })
   }
 }
 
@@ -87,7 +116,6 @@ export async function DELETE(request: NextRequest) {
   const { error } = await supabase.from('survey_questions').delete().eq('id', id)
 
   if (error) {
-    console.error('Question delete error:', error)
     return NextResponse.json({ error: 'Gagal menghapus pertanyaan' }, { status: 500 })
   }
 

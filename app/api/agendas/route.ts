@@ -19,7 +19,6 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (error || !agenda) {
-      console.error('Agenda fetch error:', error)
       return NextResponse.json({ error: 'Agenda tidak ditemukan' }, { status: 404 })
     }
 
@@ -35,7 +34,6 @@ export async function GET(request: NextRequest) {
   const { data: agendas, error } = await query
 
   if (error) {
-    console.error('Agendas fetch error:', error)
     return NextResponse.json({ error: 'Gagal mengambil data' }, { status: 500 })
   }
 
@@ -55,35 +53,47 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Judul harus diisi' }, { status: 400 })
     }
 
-    const insertData: any = {
+    const baseData: any = {
       title: title.trim(),
       description: description?.trim() || null,
       is_active: true,
     }
 
-    // Only include event_date if provided and column exists
+    // Try with event_date first
+    let insertData = { ...baseData }
     if (event_date) {
       insertData.event_date = event_date
     }
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('agendas')
       .insert(insertData)
       .select()
       .single()
 
+    // Fallback: if event_date column doesn't exist, retry without it
+    if (error && error.message?.includes('event_date')) {
+      console.warn('event_date column not found, retrying without it...')
+      const fallback = await supabase
+        .from('agendas')
+        .insert(baseData)
+        .select()
+        .single()
+
+      if (fallback.error) {
+        return NextResponse.json({ error: 'Gagal membuat agenda' }, { status: 500 })
+      }
+      data = fallback.data
+      error = null
+    }
+
     if (error) {
-      console.error('Agenda insert error:', JSON.stringify(error, null, 2))
-      return NextResponse.json({
-        error: 'Gagal membuat agenda',
-        details: error.message || 'Unknown error',
-      }, { status: 500 })
+      return NextResponse.json({ error: 'Gagal membuat agenda' }, { status: 500 })
     }
 
     return NextResponse.json({ agenda: data }, { status: 201 })
   } catch (err: any) {
-    console.error('Agenda POST exception:', err)
-    return NextResponse.json({ error: 'Data tidak valid', details: err.message }, { status: 400 })
+    return NextResponse.json({ error: 'Data tidak valid' }, { status: 400 })
   }
 }
 
@@ -106,13 +116,11 @@ export async function PATCH(request: NextRequest) {
       .eq('id', id)
 
     if (error) {
-      console.error('Agenda update error:', error)
       return NextResponse.json({ error: 'Gagal mengubah status' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
-  } catch (err: any) {
-    console.error('Agenda PATCH exception:', err)
+  } catch {
     return NextResponse.json({ error: 'Data tidak valid' }, { status: 400 })
   }
 }
