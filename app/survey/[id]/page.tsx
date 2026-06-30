@@ -3,6 +3,102 @@
 import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 
+// Component to show vote results after submission
+function VoteResultsScreen({ agendaId, agendaTitle, isSubmit, onBack }: {
+  agendaId: string
+  agendaTitle: string
+  isSubmit: boolean
+  onBack: () => void
+}) {
+  const [results, setResults] = useState<any[]>([])
+  const [totalVotes, setTotalVotes] = useState(0)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch(`/api/votes?agendaId=${agendaId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setResults(data.results || [])
+        setTotalVotes(data.totalVotes || 0)
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [agendaId])
+
+  const maxVotes = results.length > 0 ? results[0].vote_count : 0
+
+  return (
+    <div className="min-h-screen animated-bg islamic-pattern flex items-center justify-center p-4">
+      <div className="w-full max-w-md animate-scale-in">
+        {/* Success Header */}
+        <div className="glass rounded-2xl p-6 text-center mb-4">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-100 flex items-center justify-center">
+            <svg className="w-8 h-8 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-slate-800 mb-1">
+            {isSubmit ? 'Terima Kasih!' : 'Sudah Memilih'}
+          </h2>
+          <p className="text-sm text-slate-500">
+            {isSubmit ? 'Vote Anda berhasil dikirim.' : 'Anda sudah memberikan vote.'}
+          </p>
+        </div>
+
+        {/* Vote Results */}
+        <div className="glass rounded-2xl p-5 mb-4">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-lg">🏆</span>
+            <div>
+              <h3 className="font-bold text-slate-800">Hasil Vote</h3>
+              <p className="text-xs text-slate-400">{agendaTitle} — {totalVotes} total vote</p>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center py-6"><div className="spinner" /></div>
+          ) : results.length === 0 ? (
+            <p className="text-center text-slate-400 py-4">Belum ada vote</p>
+          ) : (
+            <div className="space-y-3">
+              {results.map((r: any, i: number) => {
+                const pct = totalVotes > 0 ? (r.vote_count / totalVotes) * 100 : 0
+                const isWinner = r.vote_count === maxVotes && maxVotes > 0
+                return (
+                  <div key={r.voted_for_id} className="animate-slide-up" style={{ animationDelay: `${i * 0.1}s` }}>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        {isWinner && <span className="text-base">🏆</span>}
+                        <span className="text-sm font-medium text-slate-700">{r.full_name}</span>
+                      </div>
+                      <span className="text-sm font-bold text-emerald-600">{r.vote_count} vote</span>
+                    </div>
+                    <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-1000 ease-out ${
+                          isWinner ? 'bg-gradient-to-r from-emerald-400 to-teal-500' : 'bg-slate-300'
+                        }`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        <button
+          onClick={onBack}
+          className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-medium shadow-lg shadow-emerald-500/25 hover:-translate-y-0.5 transition-all"
+        >
+          Kembali ke Daftar Agenda
+        </button>
+      </div>
+    </div>
+  )
+}
+
 interface Question {
   id: string
   question_text: string
@@ -172,29 +268,12 @@ export default function SurveyFormPage({ params }: { params: Promise<{ id: strin
   // Success / Already submitted screen
   if (submitted || alreadySubmitted) {
     return (
-      <div className="min-h-screen animated-bg islamic-pattern flex items-center justify-center p-4">
-        <div className="glass rounded-2xl p-10 text-center max-w-md w-full animate-scale-in">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-emerald-100 flex items-center justify-center">
-            <svg className="w-10 h-10 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <h2 className="text-2xl font-bold text-slate-800 mb-2">
-            {submitted ? 'Terima Kasih!' : 'Sudah Memilih'}
-          </h2>
-          <p className="text-slate-500 mb-6">
-            {submitted
-              ? 'Vote mahasiswa teraktif Anda berhasil dikirim.'
-              : 'Anda sudah memberikan vote mahasiswa teraktif untuk agenda ini.'}
-          </p>
-          <button
-            onClick={() => router.push('/survey')}
-            className="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-medium shadow-lg shadow-emerald-500/25 hover:-translate-y-0.5 transition-all"
-          >
-            Kembali ke Daftar Agenda
-          </button>
-        </div>
-      </div>
+      <VoteResultsScreen
+        agendaId={agendaId}
+        agendaTitle={agenda?.title || ''}
+        isSubmit={submitted}
+        onBack={() => router.push('/survey')}
+      />
     )
   }
 

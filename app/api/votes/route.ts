@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import supabase from '@/lib/supabase'
 import { getSession } from '@/lib/auth'
 
-// Get vote results — ADMIN ONLY
+// Get vote results — ALL authenticated users can see (counts only, no voter details)
 export async function GET(request: NextRequest) {
   const session = await getSession()
-  if (!session || !session.isAdmin) {
-    return NextResponse.json({ error: 'Admin only' }, { status: 403 })
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const agendaId = request.nextUrl.searchParams.get('agendaId')
@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'agendaId diperlukan' }, { status: 400 })
   }
 
+  // Get vote counts grouped by voted_for_id (no voter details exposed)
   const { data: votes, error } = await supabase
     .from('active_student_votes')
     .select('voted_for_id')
@@ -23,6 +24,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Gagal mengambil data' }, { status: 500 })
   }
 
+  // Count votes per candidate
   const voteCounts: Record<string, number> = {}
   for (const vote of votes || []) {
     voteCounts[vote.voted_for_id] = (voteCounts[vote.voted_for_id] || 0) + 1
@@ -30,9 +32,10 @@ export async function GET(request: NextRequest) {
 
   const candidateIds = Object.keys(voteCounts)
   if (candidateIds.length === 0) {
-    return NextResponse.json({ results: [] })
+    return NextResponse.json({ results: [], totalVotes: 0 })
   }
 
+  // Get member details for each candidate
   const { data: members } = await supabase
     .from('members')
     .select('id, full_name, nim')
@@ -47,7 +50,9 @@ export async function GET(request: NextRequest) {
     }))
     .sort((a, b) => b.vote_count - a.vote_count)
 
-  return NextResponse.json({ results })
+  const totalVotes = (votes || []).length
+
+  return NextResponse.json({ results, totalVotes })
 }
 
 // Submit vote
@@ -92,7 +97,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check existing votes (with row-level lock via delete-then-insert)
+    // Check existing votes
     const { data: existingVotes } = await supabase
       .from('active_student_votes')
       .select('id')

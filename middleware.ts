@@ -14,12 +14,9 @@ export async function middleware(request: NextRequest) {
     if (token) {
       try {
         const { payload } = await jwtVerify(token, secretKey)
-        const data = payload as any
-        return NextResponse.redirect(
-          new URL(data.isAdmin ? '/admin' : '/survey', request.url)
-        )
+        // Both admin and member go to /survey first
+        return NextResponse.redirect(new URL('/survey', request.url))
       } catch {
-        // Invalid token, clear it
         const res = NextResponse.next()
         res.cookies.delete('session')
         return res
@@ -44,7 +41,6 @@ export async function middleware(request: NextRequest) {
 
     return NextResponse.next()
   } catch {
-    // Invalid token
     const res = NextResponse.redirect(new URL('/', request.url))
     res.cookies.delete('session')
     return res
