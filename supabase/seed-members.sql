@@ -20,7 +20,7 @@ INSERT INTO members (full_name, nim, is_admin) VALUES
   ('Satria Fahri Arullah', '25550035', FALSE),
   ('Mutiara Ramadhani', '25550014', FALSE),
   ('Kirana Cinta Mentari', '25550012', FALSE),
-  ('Kirani Cinta Mentari', '25550039', FALSE),
+  ('Kirani Cinta Mentari', '25550039', TRUE),
   ('Mun''im Abdulloh', '25350075', FALSE),
   ('Ilham Maulana rifqi', '25250020', FALSE),
   ('AFRI YULIANTO WIBOWO', '25250019', FALSE),

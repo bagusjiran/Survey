@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
     .order('sort_order', { ascending: true })
 
   if (error) {
+    console.error('Questions fetch error:', error)
     return NextResponse.json({ error: 'Gagal mengambil data' }, { status: 500 })
   }
 
@@ -46,7 +47,8 @@ export async function POST(request: NextRequest) {
       sort_order: sort_order || 0,
     }
 
-    if (question_type === 'radio' && options) {
+    // Only include options if question_type is 'radio' and options provided
+    if (question_type === 'radio' && options && Array.isArray(options) && options.length > 0) {
       insertData.options = options
     }
 
@@ -57,12 +59,17 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) {
-      return NextResponse.json({ error: 'Gagal menambah pertanyaan' }, { status: 500 })
+      console.error('Question insert error:', JSON.stringify(error, null, 2))
+      return NextResponse.json({
+        error: 'Gagal menambah pertanyaan',
+        details: error.message || 'Unknown error',
+      }, { status: 500 })
     }
 
     return NextResponse.json({ question: data }, { status: 201 })
-  } catch {
-    return NextResponse.json({ error: 'Data tidak valid' }, { status: 400 })
+  } catch (err: any) {
+    console.error('Question POST exception:', err)
+    return NextResponse.json({ error: 'Data tidak valid', details: err.message }, { status: 400 })
   }
 }
 
@@ -80,6 +87,7 @@ export async function DELETE(request: NextRequest) {
   const { error } = await supabase.from('survey_questions').delete().eq('id', id)
 
   if (error) {
+    console.error('Question delete error:', error)
     return NextResponse.json({ error: 'Gagal menghapus pertanyaan' }, { status: 500 })
   }
 
