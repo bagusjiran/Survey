@@ -175,7 +175,8 @@ export default function AgendaDetailPage({ params }: { params: Promise<{ id: str
     }
   }
 
-  const nonAdminMembers = members.filter((m) => !m.is_admin)
+  // Exclude only chairman (NIM 24550011) from voting list
+  const votableMembers = members.filter((m) => m.nim !== '24550011')
   const totalVotes = voteResults.reduce((sum, v) => sum + v.vote_count, 0)
   const maxVotes = voteResults.length > 0 ? Math.max(...voteResults.map((v) => v.vote_count)) : 0
 
@@ -397,7 +398,7 @@ export default function AgendaDetailPage({ params }: { params: Promise<{ id: str
           <div className="glass rounded-2xl p-6 mb-6 animate-slide-up">
             <h3 className="font-semibold text-slate-800 mb-3">Vote Mahasiswa Teraktif (Admin: pilih maks. 2)</h3>
             <div className="space-y-2 mb-4 max-h-64 overflow-y-auto">
-              {nonAdminMembers.map((m) => (
+              {votableMembers.map((m) => (
                 <label
                   key={m.id}
                   className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all ${
@@ -428,7 +429,7 @@ export default function AgendaDetailPage({ params }: { params: Promise<{ id: str
                   </div>
                 </label>
               ))}
-              {nonAdminMembers.length === 0 && (
+              {votableMembers.length === 0 && (
                 <p className="text-slate-400 text-center py-4">Belum ada anggota</p>
               )}
             </div>

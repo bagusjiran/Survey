@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import supabase from '@/lib/supabase'
 import { getSession } from '@/lib/auth'
 
-// Get vote results — ALL authenticated users can see (counts only, no voter details)
+// Chairman NIM — excluded from voting
+const CHAIRMAN_NIM = '24550011'
+
+// Get vote results — ALL authenticated users can see
 export async function GET(request: NextRequest) {
   const session = await getSession()
   if (!session) {
@@ -14,7 +17,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'agendaId diperlukan' }, { status: 400 })
   }
 
-  // Get vote counts grouped by voted_for_id (no voter details exposed)
   const { data: votes, error } = await supabase
     .from('active_student_votes')
     .select('voted_for_id')
@@ -24,7 +26,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Gagal mengambil data' }, { status: 500 })
   }
 
-  // Count votes per candidate
   const voteCounts: Record<string, number> = {}
   for (const vote of votes || []) {
     voteCounts[vote.voted_for_id] = (voteCounts[vote.voted_for_id] || 0) + 1
@@ -35,7 +36,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ results: [], totalVotes: 0 })
   }
 
-  // Get member details for each candidate
   const { data: members } = await supabase
     .from('members')
     .select('id, full_name, nim')
@@ -50,9 +50,7 @@ export async function GET(request: NextRequest) {
     }))
     .sort((a, b) => b.vote_count - a.vote_count)
 
-  const totalVotes = (votes || []).length
-
-  return NextResponse.json({ results, totalVotes })
+  return NextResponse.json({ results, totalVotes: (votes || []).length })
 }
 
 // Submit vote
@@ -69,7 +67,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Data tidak lengkap' }, { status: 400 })
     }
 
-    // Validate vote count
     const maxVotes = session.isAdmin ? 2 : 1
     if (votedForIds.length === 0 || votedForIds.length > maxVotes) {
       return NextResponse.json({
@@ -82,18 +79,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Tidak bisa memilih diri sendiri' }, { status: 400 })
     }
 
-    // Get admin member IDs (to ensure no one votes for admin)
-    const { data: admins } = await supabase
+    // Get chairman member ID (only chairman excluded from being voted)
+    const { data: chairman } = await supabase
       .from('members')
       .select('id')
-      .eq('is_admin', true)
+      .eq('nim', CHAIRMAN_NIM)
+      .single()
 
-    const adminIds = (admins || []).map((a) => a.id)
+    const chairmanId = chairman?.id
 
-    // Can't vote for admin
+    // Can't vote for chairman (ketua)
     for (const votedId of votedForIds) {
-      if (adminIds.includes(votedId)) {
-        return NextResponse.json({ error: 'Tidak bisa memilih admin' }, { status: 400 })
+      if (chairmanId && votedId === chairmanId) {
+        return NextResponse.json({ error: 'Tidak bisa memilih ketua' }, { status: 400 })
       }
     }
 
@@ -106,17 +104,14 @@ export async function POST(request: NextRequest) {
 
     const existingCount = existingVotes?.length || 0
 
-    // For regular members: already voted = blocked
     if (!session.isAdmin && existingCount >= 1) {
       return NextResponse.json({ error: 'Anda sudah memberikan vote' }, { status: 409 })
     }
 
-    // For admin: already voted with 2 = blocked
     if (session.isAdmin && existingCount >= 2) {
       return NextResponse.json({ error: 'Anda sudah memberikan vote' }, { status: 409 })
     }
 
-    // Delete existing votes first (allows re-vote for admin)
     if (existingCount > 0) {
       const { error: deleteErr } = await supabase
         .from('active_student_votes')
@@ -129,7 +124,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Insert new votes
     const inserts = votedForIds.map((votedId: string) => ({
       agenda_id: agendaId,
       voter_id: session.memberId,

@@ -237,10 +237,10 @@ export default function SurveyFormPage({ params }: { params: Promise<{ id: strin
         setQuestions(questionsData.questions || [])
         setSession(sessionData)
 
-        // Filter members for voting: exclude self and admin
+        // Filter members for voting: exclude self and chairman (NIM 24550011)
         const allMembers: Member[] = membersData.members || []
         const eligible = allMembers.filter(
-          (m) => m.id !== sessionData.memberId && !m.is_admin
+          (m) => m.id !== sessionData.memberId && m.nim !== '24550011'
         )
         setMembers(eligible)
 
