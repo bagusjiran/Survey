@@ -54,8 +54,8 @@ export default function AgendaDetailPage({ params }: { params: Promise<{ id: str
   const [activeTab, setActiveTab] = useState<'questions' | 'votes' | 'responses'>('questions')
   const [adminVotes, setAdminVotes] = useState<string[]>([])
   const [votingLoading, setVotingLoading] = useState(false)
-  const [responses, setResponses] = useState<SurveyResponse[]>([])
-  const [responsesLoading, setResponsesLoading] = useState(false)
+  const [responses, setResponses] = useState<any[]>([])
+  const [totalResponden, setTotalResponden] = useState(0)
 
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type })
@@ -83,6 +83,7 @@ export default function AgendaDetailPage({ params }: { params: Promise<{ id: str
       setVoteResults(votesData.results || [])
       setMembers(membersData.members || [])
       setResponses(responsesData.responses || [])
+      setTotalResponden(responsesData.totalResponden || 0)
     } catch {
       showToast('Gagal memuat data', 'error')
     } finally {
@@ -486,71 +487,49 @@ export default function AgendaDetailPage({ params }: { params: Promise<{ id: str
         <div>
           {responses.length === 0 ? (
             <div className="glass rounded-2xl text-center py-12 text-slate-400">
-              <svg className="w-12 h-12 mx-auto mb-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-              </svg>
               <p className="text-lg">Belum ada jawaban masuk</p>
               <p className="text-sm mt-1">Jawaban anggota akan muncul di sini setelah mereka mengisi survey</p>
             </div>
           ) : (
-            <>
-              {/* Group by member */}
-              {(() => {
-                const grouped: Record<string, { member: any; answers: SurveyResponse[] }> = {}
-                responses.forEach((r) => {
-                  if (!grouped[r.member_id]) {
-                    grouped[r.member_id] = { member: r.member, answers: [] }
-                  }
-                  grouped[r.member_id].answers.push(r)
-                })
-                const entries = Object.values(grouped)
-                return (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm text-slate-500">{entries.length} anggota sudah mengisi survey</p>
+            <div className="space-y-3">
+              <p className="text-sm text-slate-500">{totalResponden} anggota sudah mengisi survey</p>
+              {responses.map((entry: any, i: number) => (
+                <div key={i} className="glass rounded-2xl p-5 animate-slide-up" style={{ animationDelay: `${i * 0.05}s` }}>
+                  <div className="flex items-center gap-3 mb-3 pb-2 border-b border-slate-100">
+                    <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 font-bold text-sm flex items-center justify-center">
+                      {entry.member.full_name.charAt(0).toUpperCase()}
                     </div>
-                    {entries.map((entry, i) => (
-                      <div key={i} className="glass rounded-2xl p-5 animate-slide-up" style={{ animationDelay: `${i * 0.05}s` }}>
-                        <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-100">
-                          <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 font-bold text-sm flex items-center justify-center">
-                            {entry.member.full_name.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-slate-800">{entry.member.full_name}</p>
-                            <p className="text-xs text-slate-400">{entry.member.nim}</p>
-                          </div>
-                        </div>
-                        <div className="space-y-3">
-                          {entry.answers.map((a) => (
-                            <div key={a.id} className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-3">
-                              <p className="text-sm text-slate-500 font-medium sm:w-1/3 flex-shrink-0">
-                                {a.question.question_text}
-                              </p>
-                              <div className="flex-1">
-                                {a.question.question_type === 'rating' ? (
-                                  <div className="flex items-center gap-1">
-                                    {[1, 2, 3, 4, 5].map((star) => (
-                                      <svg key={star} className={`w-5 h-5 ${parseInt(a.response_text) >= star ? 'text-amber-400' : 'text-slate-200'}`} fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
-                                      </svg>
-                                    ))}
-                                    <span className="text-sm text-slate-500 ml-1">{a.response_text}/5</span>
-                                  </div>
-                                ) : (
-                                  <p className="text-sm text-slate-800 bg-slate-50 rounded-lg px-3 py-2">
-                                    {a.response_text || <span className="text-slate-400 italic">Tidak dijawab</span>}
-                                  </p>
-                                )}
-                              </div>
+                    <div>
+                      <p className="font-semibold text-slate-800 text-sm">{entry.member.full_name}</p>
+                      <p className="text-[10px] text-slate-400">{entry.member.nim}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {entry.answers.map((a: any) => (
+                      <div key={a.id} className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2">
+                        <p className="text-xs text-slate-500 font-medium sm:w-1/3">{a.question.question_text}</p>
+                        <div className="flex-1">
+                          {a.question.question_type === 'rating' ? (
+                            <div className="flex items-center gap-0.5">
+                              {[1, 2, 3, 4, 5].map((s) => (
+                                <svg key={s} className={`w-4 h-4 ${parseInt(a.response_text) >= s ? 'text-amber-400' : 'text-slate-200'}`} fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+                                </svg>
+                              ))}
+                              <span className="text-[10px] text-slate-400 ml-1">{a.response_text}/5</span>
                             </div>
-                          ))}
+                          ) : (
+                            <p className="text-xs text-slate-700 bg-slate-50 rounded px-2 py-1">
+                              {a.response_text || <span className="text-slate-400 italic">-</span>}
+                            </p>
+                          )}
                         </div>
                       </div>
                     ))}
                   </div>
-                )
-              })()}
-            </>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       )}

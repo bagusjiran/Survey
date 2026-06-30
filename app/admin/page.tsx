@@ -1,164 +1,298 @@
-import supabase from '@/lib/supabase'
+'use client'
+
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
-async function getStats() {
-  const [members, agendas, votes] = await Promise.all([
-    supabase.from('members').select('id', { count: 'exact', head: true }),
-    supabase.from('agendas').select('id', { count: 'exact', head: true }),
-    supabase.from('active_student_votes').select('id', { count: 'exact', head: true }),
-  ])
-
-  const { data: recentAgendas } = await supabase
-    .from('agendas')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(5)
-
-  return {
-    memberCount: members.count || 0,
-    agendaCount: agendas.count || 0,
-    voteCount: votes.count || 0,
-    recentAgendas: recentAgendas || [],
-  }
+interface Agenda {
+  id: string
+  title: string
+  description: string
+  is_active: boolean
+  event_date: string | null
+  created_at: string
 }
 
-export default async function AdminDashboard() {
-  const stats = await getStats()
+interface AgendaData {
+  agenda: Agenda
+  questions: any[]
+  responses: any[]
+  voteResults: any[]
+  totalResponden: number
+  totalVotes: number
+}
 
-  const statCards = [
-    {
-      label: 'Total Anggota',
-      value: stats.memberCount,
-      icon: (
-        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
-        </svg>
-      ),
-      color: 'from-blue-500 to-indigo-600',
-      shadow: 'shadow-blue-500/25',
-    },
-    {
-      label: 'Total Agenda',
-      value: stats.agendaCount,
-      icon: (
-        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-        </svg>
-      ),
-      color: 'from-emerald-500 to-teal-600',
-      shadow: 'shadow-emerald-500/25',
-    },
-    {
-      label: 'Total Vote',
-      value: stats.voteCount,
-      icon: (
-        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
-        </svg>
-      ),
-      color: 'from-amber-500 to-orange-600',
-      shadow: 'shadow-amber-500/25',
-    },
-  ]
+export default function AdminDashboard() {
+  const [agendas, setAgendas] = useState<Agenda[]>([])
+  const [agendaData, setAgendaData] = useState<Record<string, AgendaData>>({})
+  const [loading, setLoading] = useState(true)
+  const [expandedAgenda, setExpandedAgenda] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<Record<string, 'responses' | 'votes'>>({})
+
+  useEffect(() => {
+    const fetchAll = async () => {
+      try {
+        // Fetch all agendas
+        const agendaRes = await fetch('/api/agendas')
+        const agendaJson = await agendaRes.json()
+        const allAgendas = agendaJson.agendas || []
+        setAgendas(allAgendas)
+
+        // Fetch data for each agenda in parallel
+        const dataMap: Record<string, AgendaData> = {}
+        await Promise.all(
+          allAgendas.map(async (agenda: Agenda) => {
+            try {
+              const [qRes, rRes, vRes] = await Promise.all([
+                fetch(`/api/questions?agendaId=${agenda.id}`).then((r) => r.json()),
+                fetch(`/api/responses?agendaId=${agenda.id}`).then((r) => r.json()),
+                fetch(`/api/votes?agendaId=${agenda.id}`).then((r) => r.json()),
+              ])
+              dataMap[agenda.id] = {
+                agenda,
+                questions: qRes.questions || [],
+                responses: rRes.responses || [],
+                voteResults: vRes.results || [],
+                totalResponden: rRes.totalResponden || 0,
+                totalVotes: vRes.totalVotes || 0,
+              }
+            } catch { /* skip */ }
+          })
+        )
+        setAgendaData(dataMap)
+
+        // Auto-expand first agenda
+        if (allAgendas.length > 0) {
+          setExpandedAgenda(allAgendas[0].id)
+          setActiveTab({ [allAgendas[0].id]: 'responses' })
+        }
+      } catch {
+        console.error('Failed to fetch')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchAll()
+  }, [])
+
+  const toggleAgenda = (id: string) => {
+    setExpandedAgenda(expandedAgenda === id ? null : id)
+    if (!activeTab[id]) {
+      setActiveTab((prev) => ({ ...prev, [id]: 'responses' }))
+    }
+  }
+
+  const setTab = (agendaId: string, tab: 'responses' | 'votes') => {
+    setActiveTab((prev) => ({ ...prev, [agendaId]: tab }))
+  }
+
+  const totalAgendas = agendas.length
+  const totalResponses = Object.values(agendaData).reduce((s, d) => s + d.totalResponden, 0)
+  const totalVotes = Object.values(agendaData).reduce((s, d) => s + d.totalVotes, 0)
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="spinner !w-10 !h-10" />
+      </div>
+    )
+  }
 
   return (
     <div className="animate-fade-in">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
-        <p className="text-slate-500 mt-1">Selamat datang, Admin UKM Kerohanian Islam</p>
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-slate-800">Dashboard Admin</h1>
+        <p className="text-slate-500 mt-1">Kelola survey, lihat jawaban dan hasil vote</p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-        {statCards.map((card, i) => (
-          <div
-            key={card.label}
-            className={`animate-slide-up stagger-${i + 1} glass rounded-2xl p-6 hover-lift`}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-500">{card.label}</p>
-                <p className="text-3xl font-bold text-slate-800 mt-1">{card.value}</p>
-              </div>
-              <div className={`p-3 rounded-xl bg-gradient-to-br ${card.color} text-white shadow-lg ${card.shadow}`}>
-                {card.icon}
-              </div>
-            </div>
-          </div>
-        ))}
+      <div className="grid grid-cols-3 gap-3 mb-6">
+        <div className="glass rounded-xl p-4 text-center">
+          <p className="text-2xl font-bold text-slate-800">{totalAgendas}</p>
+          <p className="text-xs text-slate-500">Agenda</p>
+        </div>
+        <div className="glass rounded-xl p-4 text-center">
+          <p className="text-2xl font-bold text-emerald-600">{totalResponses}</p>
+          <p className="text-xs text-slate-500">Jawaban</p>
+        </div>
+        <div className="glass rounded-xl p-4 text-center">
+          <p className="text-2xl font-bold text-amber-600">{totalVotes}</p>
+          <p className="text-xs text-slate-500">Vote</p>
+        </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-        <Link
-          href="/admin/anggota"
-          className="glass rounded-2xl p-6 hover-lift flex items-center gap-4 group"
-        >
-          <div className="p-3 rounded-xl bg-blue-100 text-blue-600 group-hover:bg-blue-500 group-hover:text-white transition-colors duration-300">
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
-            </svg>
-          </div>
-          <div>
-            <h3 className="font-semibold text-slate-800">Tambah Anggota</h3>
-            <p className="text-sm text-slate-500">Kelola data anggota UKM</p>
-          </div>
+      {/* Quick Links */}
+      <div className="flex gap-2 mb-6">
+        <Link href="/admin/anggota" className="flex-1 glass rounded-xl p-3 text-center hover-lift">
+          <p className="text-sm font-medium text-slate-700">👥 Anggota</p>
         </Link>
-
-        <Link
-          href="/admin/agenda"
-          className="glass rounded-2xl p-6 hover-lift flex items-center gap-4 group"
-        >
-          <div className="p-3 rounded-xl bg-emerald-100 text-emerald-600 group-hover:bg-emerald-500 group-hover:text-white transition-colors duration-300">
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-          </div>
-          <div>
-            <h3 className="font-semibold text-slate-800">Buat Agenda</h3>
-            <p className="text-sm text-slate-500">Tambah agenda kegiatan baru</p>
-          </div>
+        <Link href="/admin/agenda" className="flex-1 glass rounded-xl p-3 text-center hover-lift">
+          <p className="text-sm font-medium text-slate-700">📅 Kelola Agenda</p>
         </Link>
       </div>
 
-      {/* Recent Agendas */}
-      <div className="glass rounded-2xl p-6 animate-slide-up stagger-3">
-        <h2 className="text-lg font-semibold text-slate-800 mb-4">Agenda Terbaru</h2>
-        {stats.recentAgendas.length === 0 ? (
-          <p className="text-slate-400 text-center py-8">Belum ada agenda</p>
-        ) : (
-          <div className="space-y-3">
-            {stats.recentAgendas.map((agenda) => (
-              <Link
-                key={agenda.id}
-                href={`/admin/agenda/${agenda.id}`}
-                className="flex items-center justify-between p-4 rounded-xl hover:bg-slate-50 transition-colors group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-2 h-2 rounded-full ${agenda.is_active ? 'bg-emerald-500' : 'bg-slate-300'}`} />
-                  <div>
-                    <h3 className="font-medium text-slate-700 group-hover:text-emerald-600 transition-colors">
-                      {agenda.title}
-                    </h3>
-                    <p className="text-xs text-slate-400">
-                      {agenda.event_date
-                        ? new Date(agenda.event_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
-                        : 'Tanpa tanggal'}
-                    </p>
+      {/* All Agendas with Responses */}
+      {agendas.length === 0 ? (
+        <div className="glass rounded-2xl text-center py-12 text-slate-400">
+          <p className="text-lg">Belum ada agenda</p>
+          <Link href="/admin/agenda" className="text-emerald-600 text-sm mt-2 inline-block hover:underline">
+            + Buat agenda baru
+          </Link>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {agendas.map((agenda) => {
+            const data = agendaData[agenda.id]
+            if (!data) return null
+            const isExpanded = expandedAgenda === agenda.id
+            const currentTab = activeTab[agenda.id] || 'responses'
+
+            return (
+              <div key={agenda.id} className="glass rounded-2xl overflow-hidden animate-slide-up">
+                {/* Agenda Header — clickable */}
+                <button
+                  onClick={() => toggleAgenda(agenda.id)}
+                  className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-2 h-2 rounded-full ${agenda.is_active ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                    <div>
+                      <h3 className="font-semibold text-slate-800">{agenda.title}</h3>
+                      <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
+                        <span>📋 {data.questions.length} pertanyaan</span>
+                        <span>💬 {data.totalResponden} jawaban</span>
+                        <span>🏆 {data.totalVotes} vote</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <span className={`text-xs px-2.5 py-1 rounded-full ${
-                  agenda.is_active
-                    ? 'bg-emerald-100 text-emerald-700'
-                    : 'bg-slate-100 text-slate-500'
-                }`}>
-                  {agenda.is_active ? 'Aktif' : 'Nonaktif'}
-                </span>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
+                  <svg className={`w-5 h-5 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                  </svg>
+                </button>
+
+                {/* Expanded Content */}
+                {isExpanded && (
+                  <div className="border-t border-slate-100 p-4">
+                    {/* Tab Switch */}
+                    <div className="flex gap-2 mb-4">
+                      <button
+                        onClick={() => setTab(agenda.id, 'responses')}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                          currentTab === 'responses'
+                            ? 'bg-emerald-500 text-white'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        💬 Jawaban ({data.totalResponden})
+                      </button>
+                      <button
+                        onClick={() => setTab(agenda.id, 'votes')}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                          currentTab === 'votes'
+                            ? 'bg-emerald-500 text-white'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        🏆 Vote ({data.totalVotes})
+                      </button>
+                      <Link
+                        href={`/admin/agenda/${agenda.id}`}
+                        className="ml-auto px-3 py-2 rounded-lg text-xs bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
+                      >
+                        Kelola →
+                      </Link>
+                    </div>
+
+                    {/* Responses Tab */}
+                    {currentTab === 'responses' && (
+                      <div>
+                        {data.responses.length === 0 ? (
+                          <p className="text-center text-slate-400 py-6">Belum ada jawaban</p>
+                        ) : (
+                          <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+                            {data.responses.map((entry: any, i: number) => (
+                              <div key={i} className="bg-slate-50 rounded-xl p-4">
+                                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-200">
+                                  <div className="w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 font-bold text-xs flex items-center justify-center">
+                                    {entry.member.full_name.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-semibold text-slate-700">{entry.member.full_name}</p>
+                                    <p className="text-[10px] text-slate-400">{entry.member.nim}</p>
+                                  </div>
+                                </div>
+                                <div className="space-y-2">
+                                  {entry.answers.map((a: any) => (
+                                    <div key={a.id} className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2">
+                                      <p className="text-xs text-slate-500 font-medium sm:w-2/5 flex-shrink-0">
+                                        {a.question.question_text}
+                                      </p>
+                                      <div className="flex-1">
+                                        {a.question.question_type === 'rating' ? (
+                                          <div className="flex items-center gap-0.5">
+                                            {[1, 2, 3, 4, 5].map((s) => (
+                                              <svg key={s} className={`w-4 h-4 ${parseInt(a.response_text) >= s ? 'text-amber-400' : 'text-slate-200'}`} fill="currentColor" viewBox="0 0 24 24">
+                                                <path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+                                              </svg>
+                                            ))}
+                                            <span className="text-[10px] text-slate-400 ml-1">{a.response_text}/5</span>
+                                          </div>
+                                        ) : (
+                                          <p className="text-xs text-slate-700 bg-white rounded px-2 py-1">
+                                            {a.response_text || <span className="text-slate-400 italic">-</span>}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Votes Tab */}
+                    {currentTab === 'votes' && (
+                      <div>
+                        {data.voteResults.length === 0 ? (
+                          <p className="text-center text-slate-400 py-6">Belum ada vote</p>
+                        ) : (
+                          <div className="space-y-2.5">
+                            {data.voteResults.map((v: any, i: number) => {
+                              const pct = data.totalVotes > 0 ? (v.vote_count / data.totalVotes) * 100 : 0
+                              const isWinner = i === 0
+                              return (
+                                <div key={v.voted_for_id}>
+                                  <div className="flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-2">
+                                      {isWinner && <span>🏆</span>}
+                                      <span className="text-sm font-medium text-slate-700">{v.full_name}</span>
+                                      <span className="text-[10px] text-slate-400">{v.nim}</span>
+                                    </div>
+                                    <span className="text-sm font-bold text-emerald-600">{v.vote_count}</span>
+                                  </div>
+                                  <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full transition-all duration-700 ${isWinner ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
