@@ -1,28 +1,61 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
+interface Member {
+  id: string
+  full_name: string
+  nim: string
+  is_admin: boolean
+}
+
 export default function LoginPage() {
-  const [fullName, setFullName] = useState('')
+  const [members, setMembers] = useState<Member[]>([])
+  const [selectedId, setSelectedId] = useState('')
   const [nim, setNim] = useState('')
   const [adminCode, setAdminCode] = useState('')
   const [isAdminLogin, setIsAdminLogin] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [membersLoading, setMembersLoading] = useState(true)
   const router = useRouter()
+
+  // Fetch member list for dropdown
+  useEffect(() => {
+    const fetchMembers = async () => {
+      try {
+        const res = await fetch('/api/auth/members')
+        const data = await res.json()
+        setMembers(data.members || [])
+      } catch {
+        console.error('Gagal memuat daftar anggota')
+      } finally {
+        setMembersLoading(false)
+      }
+    }
+    fetchMembers()
+  }, [])
+
+  const selectedMember = members.find((m) => m.id === selectedId)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
 
+    if (!selectedMember) {
+      setError('Pilih nama anggota terlebih dahulu')
+      setLoading(false)
+      return
+    }
+
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          fullName: fullName.trim(),
+          fullName: selectedMember.full_name,
           nim: nim.trim(),
           adminCode: isAdminLogin ? adminCode.trim() : undefined,
         }),
@@ -69,34 +102,56 @@ export default function LoginPage() {
         {/* Login Card */}
         <div className="glass rounded-2xl shadow-xl shadow-black/5 p-8 animate-scale-in">
           <form onSubmit={handleLogin} className="space-y-5">
-            {/* Nama Lengkap */}
+            {/* Dropdown Nama Anggota */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Nama Lengkap
+                Nama Anggota
               </label>
-              <input
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Masukkan nama lengkap"
-                required
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white/60 transition-all duration-300 focus:border-emerald-400 focus:bg-white placeholder:text-slate-400"
-              />
+              {membersLoading ? (
+                <div className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white/60 flex items-center gap-2">
+                  <div className="spinner !w-4 !h-4" />
+                  <span className="text-sm text-slate-400">Memuat daftar anggota...</span>
+                </div>
+              ) : (
+                <select
+                  value={selectedId}
+                  onChange={(e) => {
+                    setSelectedId(e.target.value)
+                    setNim('')
+                    setError('')
+                  }}
+                  required
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white/60 transition-all duration-300 focus:border-emerald-400 focus:bg-white text-slate-700"
+                >
+                  <option value="">-- Pilih Nama --</option>
+                  {members.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.full_name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
-            {/* NIM */}
+            {/* NIM (Sandi) */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
                 NIM (Sandi)
               </label>
               <input
-                type="text"
+                type="password"
                 value={nim}
                 onChange={(e) => setNim(e.target.value)}
-                placeholder="Masukkan NIM"
+                placeholder={selectedId ? 'Masukkan NIM Anda' : 'Pilih nama terlebih dahulu'}
                 required
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white/60 transition-all duration-300 focus:border-emerald-400 focus:bg-white placeholder:text-slate-400"
+                disabled={!selectedId}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white/60 transition-all duration-300 focus:border-emerald-400 focus:bg-white placeholder:text-slate-400 disabled:bg-slate-100 disabled:cursor-not-allowed"
               />
+              {selectedMember && (
+                <p className="text-xs text-slate-400 mt-1.5 ml-1">
+                  NIM: {selectedMember.nim}
+                </p>
+              )}
             </div>
 
             {/* Admin Toggle */}
@@ -144,7 +199,7 @@ export default function LoginPage() {
             {/* Submit */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !selectedId}
               className="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all duration-300 hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
             >
               {loading ? (
