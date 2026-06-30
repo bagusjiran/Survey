@@ -12,15 +12,12 @@ export default function LoginPage() {
   const [members, setMembers] = useState<Member[]>([])
   const [selectedId, setSelectedId] = useState('')
   const [nim, setNim] = useState('')
-  const [adminCode, setAdminCode] = useState('')
-  const [isAdminLogin, setIsAdminLogin] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [membersLoading, setMembersLoading] = useState(true)
   const nimRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
-  // Fetch member list for dropdown
   useEffect(() => {
     const fetchMembers = async () => {
       try {
@@ -38,18 +35,12 @@ export default function LoginPage() {
 
   const selectedMember = members.find((m) => m.id === selectedId)
 
-  // When name is selected, auto-focus NIM input
   const handleNameChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value
     setSelectedId(value)
     setError('')
-    // Don't clear NIM - user might have typed it
-
-    // Auto-focus NIM input after selection
     if (value) {
-      setTimeout(() => {
-        nimRef.current?.focus()
-      }, 100)
+      setTimeout(() => nimRef.current?.focus(), 100)
     }
   }
 
@@ -77,7 +68,6 @@ export default function LoginPage() {
         body: JSON.stringify({
           fullName: selectedMember.full_name,
           nim: nim.trim(),
-          adminCode: isAdminLogin ? adminCode.trim() : undefined,
         }),
       })
 
@@ -88,7 +78,7 @@ export default function LoginPage() {
         return
       }
 
-      router.push(data.isAdmin ? '/admin' : '/survey')
+      router.push('/survey')
       router.refresh()
     } catch {
       setError('Gagal terhubung ke server')
@@ -99,12 +89,11 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen animated-bg islamic-pattern flex items-center justify-center p-4">
-      {/* Decorative circles */}
       <div className="absolute top-20 left-10 w-72 h-72 bg-emerald-300/20 rounded-full blur-3xl animate-pulse-soft" />
       <div className="absolute bottom-20 right-10 w-96 h-96 bg-teal-300/20 rounded-full blur-3xl animate-pulse-soft stagger-2" />
 
       <div className="w-full max-w-md animate-fade-in">
-        {/* Logo & Title */}
+        {/* Logo */}
         <div className="text-center mb-6 sm:mb-8 animate-slide-up">
           <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/30 mb-3 sm:mb-4">
             <svg className="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -115,14 +104,14 @@ export default function LoginPage() {
             Survey UKM Kerohanian Islam
           </h1>
           <p className="text-slate-500 text-xs sm:text-sm mt-1">
-            Universitas Teknologi Ronggolawe
+            Universitas Teknologi Ronggolawe — Cepu
           </p>
         </div>
 
         {/* Login Card */}
         <div className="glass rounded-2xl shadow-xl shadow-black/5 p-5 sm:p-8 animate-scale-in">
           <form onSubmit={handleLogin} className="space-y-4 sm:space-y-5" autoComplete="off">
-            {/* Dropdown Nama Anggota */}
+            {/* Dropdown Nama */}
             <div>
               <label htmlFor="member-select" className="block text-sm font-medium text-slate-700 mb-1.5">
                 Nama Anggota
@@ -130,7 +119,7 @@ export default function LoginPage() {
               {membersLoading ? (
                 <div className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white/60 flex items-center gap-2">
                   <div className="spinner !w-4 !h-4" />
-                  <span className="text-sm text-slate-400">Memuat daftar anggota...</span>
+                  <span className="text-sm text-slate-400">Memuat...</span>
                 </div>
               ) : (
                 <select
@@ -138,20 +127,18 @@ export default function LoginPage() {
                   value={selectedId}
                   onChange={handleNameChange}
                   required
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white/60 transition-all duration-300 focus:border-emerald-400 focus:bg-white text-slate-700 text-base"
-                  style={{ fontSize: '16px' }} // Prevent iOS zoom on focus
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white/60 transition-all duration-300 focus:border-emerald-400 focus:bg-white text-slate-700"
+                  style={{ fontSize: '16px' }}
                 >
                   <option value="">-- Pilih Nama --</option>
                   {members.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.full_name}
-                    </option>
+                    <option key={m.id} value={m.id}>{m.full_name}</option>
                   ))}
                 </select>
               )}
             </div>
 
-            {/* NIM (Sandi) — ALWAYS enabled, no disabled prop */}
+            {/* NIM */}
             <div>
               <label htmlFor="nim-input" className="block text-sm font-medium text-slate-700 mb-1.5">
                 NIM (Sandi)
@@ -163,72 +150,20 @@ export default function LoginPage() {
                 inputMode="numeric"
                 pattern="[0-9]*"
                 value={nim}
-                onChange={(e) => {
-                  // Only allow numbers
-                  const val = e.target.value.replace(/[^0-9]/g, '')
-                  setNim(val)
-                }}
+                onChange={(e) => setNim(e.target.value.replace(/[^0-9]/g, ''))}
                 placeholder="Masukkan NIM Anda"
                 autoComplete="new-password"
                 autoCorrect="off"
                 autoCapitalize="off"
                 spellCheck={false}
                 required
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white/60 transition-all duration-300 focus:border-emerald-400 focus:bg-white placeholder:text-slate-400 text-base"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white/60 transition-all duration-300 focus:border-emerald-400 focus:bg-white placeholder:text-slate-400"
                 style={{ fontSize: '16px' }}
               />
-              {selectedMember && (
-                <p className="text-xs text-emerald-600 mt-1.5 ml-1">
-                  ✓ {selectedMember.full_name}
-                </p>
-              )}
               {!selectedId && (
-                <p className="text-xs text-amber-500 mt-1.5 ml-1">
-                  ↑ Pilih nama terlebih dahulu
-                </p>
+                <p className="text-xs text-amber-500 mt-1.5 ml-1">↑ Pilih nama terlebih dahulu</p>
               )}
             </div>
-
-            {/* Admin Toggle */}
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setIsAdminLogin(!isAdminLogin)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 ${
-                  isAdminLogin ? 'bg-emerald-500' : 'bg-slate-300'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-300 ${
-                    isAdminLogin ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-              <span className="text-sm text-slate-600">Login sebagai Admin</span>
-            </div>
-
-            {/* Admin Code */}
-            {isAdminLogin && (
-              <div className="animate-slide-up">
-                <label htmlFor="admin-code" className="block text-sm font-medium text-slate-700 mb-1.5">
-                  Kode Proteksi Admin
-                </label>
-                <input
-                  id="admin-code"
-                  type="password"
-                  value={adminCode}
-                  onChange={(e) => setAdminCode(e.target.value)}
-                  placeholder="Masukkan kode admin"
-                  autoComplete="new-password"
-                  autoCorrect="off"
-                  autoCapitalize="off"
-                  spellCheck={false}
-                  required={isAdminLogin}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white/60 transition-all duration-300 focus:border-emerald-400 focus:bg-white placeholder:text-slate-400 text-base"
-                  style={{ fontSize: '16px' }}
-                />
-              </div>
-            )}
 
             {/* Error */}
             {error && (
@@ -241,21 +176,18 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading || !selectedId}
-              className="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all duration-300 hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2 text-base"
+              className="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all duration-300 hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>
                   <div className="spinner !border-white/30 !border-t-white !w-5 !h-5" />
                   <span>Memproses...</span>
                 </>
-              ) : (
-                'Masuk'
-              )}
+              ) : 'Masuk'}
             </button>
           </form>
         </div>
 
-        {/* Footer */}
         <p className="text-center text-xs text-slate-400 mt-4 sm:mt-6 animate-fade-in stagger-3">
           UKM Kerohanian Islam &copy; {new Date().getFullYear()} UTR Cepu
         </p>
