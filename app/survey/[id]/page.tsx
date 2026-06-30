@@ -256,7 +256,8 @@ export default function SurveyFormPage({ params }: { params: Promise<{ id: strin
                         placeholder="Jawaban Anda..."
                         value={responses[q.id] || ''}
                         onChange={(e) => setResponses({ ...responses, [q.id]: e.target.value })}
-                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white/60 focus:border-emerald-400 transition-all"
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white/60 focus:border-emerald-400 transition-all text-base"
+                        style={{ fontSize: '16px' }}
                       />
                     )}
 
@@ -267,7 +268,8 @@ export default function SurveyFormPage({ params }: { params: Promise<{ id: strin
                         value={responses[q.id] || ''}
                         onChange={(e) => setResponses({ ...responses, [q.id]: e.target.value })}
                         rows={4}
-                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white/60 focus:border-emerald-400 transition-all resize-none"
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white/60 focus:border-emerald-400 transition-all resize-none text-base"
+                        style={{ fontSize: '16px' }}
                       />
                     )}
 
@@ -350,7 +352,8 @@ export default function SurveyFormPage({ params }: { params: Promise<{ id: strin
             <select
               value={voteChoice}
               onChange={(e) => setVoteChoice(e.target.value)}
-              className="w-full px-4 py-3.5 rounded-xl border-2 border-slate-200 bg-white/80 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all text-slate-700 font-medium text-base"
+              className="w-full px-4 py-3.5 rounded-xl border-2 border-slate-200 bg-white/80 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all text-slate-700 font-medium"
+              style={{ fontSize: '16px' }}
             >
               <option value="">-- Pilih Mahasiswa Teraktif --</option>
               {members.map((m) => (
