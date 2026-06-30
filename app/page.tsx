@@ -10,27 +10,37 @@ interface Member {
 
 export default function LoginPage() {
   const [members, setMembers] = useState<Member[]>([])
-  const [selectedId, setSelectedId] = useState('')
+  const [selectedName, setSelectedName] = useState('')
   const [nim, setNim] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [membersLoading, setMembersLoading] = useState(true)
   const nimRef = useRef<HTMLInputElement>(null)
+  const formRef = useRef<HTMLFormElement>(null)
   const router = useRouter()
 
-  useEffect(() => {
+  useEffect(function () {
     fetch('/api/auth/members')
       .then(function (r) { return r.json() })
       .then(function (data) { setMembers(data.members || []) })
-      .catch(function () { console.error('Gagal memuat') })
+      .catch(function () { setError('Gagal memuat data anggota') })
       .finally(function () { setMembersLoading(false) })
   }, [])
 
-  var selectedMember = members.find(function (m) { return m.id === selectedId })
+  // Read error from URL (redirect from server)
+  useEffect(function () {
+    var params = new URLSearchParams(window.location.search)
+    var err = params.get('error')
+    if (err) {
+      setError(decodeURIComponent(err))
+      // Clean URL
+      window.history.replaceState({}, '', '/')
+    }
+  }, [])
 
   function handleNameChange(e: React.ChangeEvent<HTMLSelectElement>) {
     var value = e.target.value
-    setSelectedId(value)
+    setSelectedName(value)
     setError('')
     if (value && nimRef.current) {
       setTimeout(function () { nimRef.current!.focus() }, 150)
@@ -38,17 +48,17 @@ export default function LoginPage() {
   }
 
   function handleNimChange(e: React.ChangeEvent<HTMLInputElement>) {
-    var val = e.target.value.replace(/[^0-9]/g, '')
-    setNim(val)
+    setNim(e.target.value.replace(/[^0-9]/g, ''))
   }
 
-  async function handleLogin(e: React.FormEvent) {
+  // Modern browsers: fetch + redirect
+  async function handleLoginModern(e: React.FormEvent) {
     e.preventDefault()
     if (loading) return
     setLoading(true)
     setError('')
 
-    if (!selectedMember) {
+    if (!selectedName) {
       setError('Pilih nama anggota terlebih dahulu')
       setLoading(false)
       return
@@ -63,10 +73,7 @@ export default function LoginPage() {
       var res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fullName: selectedMember.full_name,
-          nim: nim.trim(),
-        }),
+        body: JSON.stringify({ fullName: selectedName, nim: nim.trim() }),
       })
       var data = await res.json()
 
@@ -76,18 +83,23 @@ export default function LoginPage() {
         return
       }
 
-      // Both admin and member go to /survey (admin can access dashboard from profile menu)
+      // Small delay to ensure cookie is saved
+      await new Promise(function (r) { setTimeout(r, 200) })
       window.location.href = '/survey'
     } catch (err) {
-      setError('Gagal terhubung ke server')
-      setLoading(false)
+      // Fallback: submit form traditionally
+      if (formRef.current) {
+        formRef.current.submit()
+      } else {
+        setError('Gagal terhubung ke server')
+        setLoading(false)
+      }
     }
   }
 
   return (
     <div className="login-page">
       <div className="login-container">
-        {/* Logo */}
         <div className="login-logo-wrap">
           <div className="login-logo-icon">
             <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth="1.5">
@@ -98,10 +110,18 @@ export default function LoginPage() {
           <p className="login-subtitle">Universitas Teknologi Ronggolawe — Cepu</p>
         </div>
 
-        {/* Login Card */}
         <div className="login-card">
-          <form onSubmit={handleLogin} autoComplete="off">
-            {/* Dropdown Nama */}
+          {/* Traditional form (fallback for old browsers) */}
+          <form
+            ref={formRef}
+            method="POST"
+            action="/api/auth/login"
+            onSubmit={handleLoginModern}
+            autoComplete="off"
+          >
+            <input type="hidden" name="fullName" value={selectedName} />
+            <input type="hidden" name="nim" value={nim} />
+
             <div className="login-field">
               <label htmlFor="member-select" className="login-label">Nama Anggota</label>
               {membersLoading ? (
@@ -112,20 +132,19 @@ export default function LoginPage() {
               ) : (
                 <select
                   id="member-select"
-                  value={selectedId}
+                  value={selectedName}
                   onChange={handleNameChange}
                   required
                   className="login-select"
                 >
                   <option value="">-- Pilih Nama --</option>
                   {members.map(function (m) {
-                    return <option key={m.id} value={m.id}>{m.full_name}</option>
+                    return <option key={m.id} value={m.full_name}>{m.full_name}</option>
                   })}
                 </select>
               )}
             </div>
 
-            {/* NIM */}
             <div className="login-field">
               <label htmlFor="nim-input" className="login-label">NIM (Sandi)</label>
               <input
@@ -142,22 +161,16 @@ export default function LoginPage() {
                 required
                 className="login-input"
               />
-              {!selectedId && (
+              {!selectedName && (
                 <p className="login-hint">Pilih nama terlebih dahulu</p>
               )}
             </div>
 
-            {/* Error */}
             {error && (
               <div className="login-error">{error}</div>
             )}
 
-            {/* Submit */}
-            <button
-              type="submit"
-              className="login-btn"
-              disabled={loading}
-            >
+            <button type="submit" className="login-btn" disabled={loading}>
               {loading ? 'Memproses...' : 'Masuk'}
             </button>
           </form>
