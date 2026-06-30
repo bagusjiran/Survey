@@ -1,6 +1,6 @@
 # 🕌 Survey UKM Kerohanian Islam
 
-Sistem Survey Mahasiswa Teraktif - UKM Kerohanian Islam UNIROW Tuban
+Sistem Survey Mahasiswa Teraktif - UKM Kerohanian Islam UTR Cepu
 
 ## Fitur
 

@@ -259,7 +259,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <p className="text-center text-xs text-slate-400 mt-4 sm:mt-6 animate-fade-in stagger-3">
-          UKM Kerohanian Islam &copy; {new Date().getFullYear()} UNIROW Tuban
+          UKM Kerohanian Islam &copy; {new Date().getFullYear()} UTR Cepu
         </p>
       </div>
     </div>

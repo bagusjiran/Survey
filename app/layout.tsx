@@ -10,7 +10,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: 'Survey UKM Kerohanian Islam',
-  description: 'Sistem Survey Mahasiswa Teraktif - UKM Kerohanian Islam UNIROW Tuban',
+  description: 'Sistem Survey Mahasiswa Teraktif - UKM Kerohanian Islam UTR Cepu',
 }
 
 export default function RootLayout({
