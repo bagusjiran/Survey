@@ -76,7 +76,8 @@ export default function LoginPage() {
         return
       }
 
-      window.location.href = data.isAdmin ? '/admin' : '/survey'
+      // Both admin and member go to /survey (admin can access dashboard from profile menu)
+      window.location.href = '/survey'
     } catch (err) {
       setError('Gagal terhubung ke server')
       setLoading(false)
