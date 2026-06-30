@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import supabase from '@/lib/supabase'
 import { getSession } from '@/lib/auth'
 
-// Get vote results (for admin)
+// Get vote results — ADMIN ONLY
 export async function GET(request: NextRequest) {
   const session = await getSession()
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session || !session.isAdmin) {
+    return NextResponse.json({ error: 'Admin only' }, { status: 403 })
   }
 
   const agendaId = request.nextUrl.searchParams.get('agendaId')
@@ -14,7 +14,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'agendaId diperlukan' }, { status: 400 })
   }
 
-  // Get vote counts grouped by voted_for_id
   const { data: votes, error } = await supabase
     .from('active_student_votes')
     .select('voted_for_id')
@@ -24,13 +23,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Gagal mengambil data' }, { status: 500 })
   }
 
-  // Count votes per candidate
   const voteCounts: Record<string, number> = {}
   for (const vote of votes || []) {
     voteCounts[vote.voted_for_id] = (voteCounts[vote.voted_for_id] || 0) + 1
   }
 
-  // Get member details for each candidate
   const candidateIds = Object.keys(voteCounts)
   if (candidateIds.length === 0) {
     return NextResponse.json({ results: [] })
@@ -95,36 +92,48 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check existing votes
+    // Check existing votes (with row-level lock via delete-then-insert)
     const { data: existingVotes } = await supabase
       .from('active_student_votes')
       .select('id')
       .eq('agenda_id', agendaId)
       .eq('voter_id', session.memberId)
 
-    if (existingVotes && existingVotes.length >= maxVotes) {
+    const existingCount = existingVotes?.length || 0
+
+    // For regular members: already voted = blocked
+    if (!session.isAdmin && existingCount >= 1) {
       return NextResponse.json({ error: 'Anda sudah memberikan vote' }, { status: 409 })
     }
 
-    // If admin has partial votes, delete them first
-    if (existingVotes && existingVotes.length > 0) {
-      await supabase
+    // For admin: already voted with 2 = blocked
+    if (session.isAdmin && existingCount >= 2) {
+      return NextResponse.json({ error: 'Anda sudah memberikan vote' }, { status: 409 })
+    }
+
+    // Delete existing votes first (allows re-vote for admin)
+    if (existingCount > 0) {
+      const { error: deleteErr } = await supabase
         .from('active_student_votes')
         .delete()
         .eq('agenda_id', agendaId)
         .eq('voter_id', session.memberId)
+
+      if (deleteErr) {
+        return NextResponse.json({ error: 'Gagal menghapus vote lama' }, { status: 500 })
+      }
     }
 
-    // Insert votes
+    // Insert new votes
     const inserts = votedForIds.map((votedId: string) => ({
       agenda_id: agendaId,
       voter_id: session.memberId,
       voted_for_id: votedId,
     }))
 
-    const { error } = await supabase.from('active_student_votes').insert(inserts)
+    const { error: insertErr } = await supabase.from('active_student_votes').insert(inserts)
 
-    if (error) {
+    if (insertErr) {
       return NextResponse.json({ error: 'Gagal menyimpan vote' }, { status: 500 })
     }
 

@@ -6,8 +6,6 @@ import { useRouter } from 'next/navigation'
 interface Member {
   id: string
   full_name: string
-  nim: string
-  is_admin: boolean
 }
 
 export default function LoginPage() {
@@ -180,8 +178,8 @@ export default function LoginPage() {
                 style={{ fontSize: '16px' }}
               />
               {selectedMember && (
-                <p className="text-xs text-slate-400 mt-1.5 ml-1">
-                  NIM terdaftar: {selectedMember.nim}
+                <p className="text-xs text-emerald-600 mt-1.5 ml-1">
+                  ✓ {selectedMember.full_name}
                 </p>
               )}
               {!selectedId && (

@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import supabase from '@/lib/supabase'
 import { getSession } from '@/lib/auth'
 
-// GET: Fetch all responses for an agenda (admin only)
+// GET: Fetch all responses for an agenda — ADMIN ONLY
 export async function GET(request: NextRequest) {
   const session = await getSession()
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session || !session.isAdmin) {
+    return NextResponse.json({ error: 'Admin only' }, { status: 403 })
   }
 
   const agendaId = request.nextUrl.searchParams.get('agendaId')
@@ -30,7 +30,6 @@ export async function GET(request: NextRequest) {
     .order('created_at', { ascending: true })
 
   if (error) {
-    console.error('Responses fetch error:', error)
     // Fallback: fetch without joins
     const { data: simpleResponses, error: simpleError } = await supabase
       .from('survey_responses')
@@ -42,7 +41,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Gagal mengambil data' }, { status: 500 })
     }
 
-    // Get member and question info separately
     const memberIds = Array.from(new Set((simpleResponses || []).map((r: any) => r.member_id)))
     const questionIds = Array.from(new Set((simpleResponses || []).map((r: any) => r.question_id)))
 
@@ -67,7 +65,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ responses: enriched })
   }
 
-  // Transform joined data
   const transformed = (responses || []).map((r: any) => ({
     id: r.id,
     response_text: r.response_text,
