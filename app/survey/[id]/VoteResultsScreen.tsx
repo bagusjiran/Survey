@@ -22,7 +22,7 @@ export default function VoteResultsScreen({ agendaId, agendaTitle, isSubmit, onB
       try {
         const [voteRes, surveyRes] = await Promise.all([
           fetch(`/api/votes?agendaId=${agendaId}`),
-          fetch(`/api/responses?agendaId=${agendaId}`),
+          fetch(`/api/responses?agendaId=${agendaId}&view=member`),
         ])
 
         if (!voteRes.ok) {

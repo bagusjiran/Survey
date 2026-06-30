@@ -62,7 +62,7 @@ export default function SurveyListPage() {
             try {
               var [vRes, sRes] = await Promise.all([
                 fetch('/api/votes?agendaId=' + a.id),
-                fetch('/api/responses?agendaId=' + a.id),
+                fetch('/api/responses?agendaId=' + a.id + '&view=member'),
               ])
               var vData = await vRes.json()
               var sData = await sRes.json()

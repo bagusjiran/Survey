@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
   }
 
   const agendaId = request.nextUrl.searchParams.get('agendaId')
+  const forceMemberView = request.nextUrl.searchParams.get('view') === 'member'
   if (!agendaId) {
     return NextResponse.json({ error: 'agendaId diperlukan' }, { status: 400 })
   }
@@ -54,7 +55,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Group responses by member (for admin) or by question (for members)
-  if (isAdmin) {
+  if (isAdmin && !forceMemberView) {
     // Admin: group by member with names
     const grouped: Record<string, { member: any; answers: any[] }> = {}
     responses.forEach((r) => {
