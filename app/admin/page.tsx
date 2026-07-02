@@ -60,10 +60,10 @@ export default function AdminDashboard() {
           allAgendas.map(async (agenda: Agenda) => {
             try {
               const [qRes, rRes, vRes, vdRes] = await Promise.all([
-                fetch(`/api/questions?agendaId=${agenda.id}`).then((r) => r.json()),
-                fetch(`/api/responses?agendaId=${agenda.id}`).then((r) => r.json()),
-                fetch(`/api/votes?agendaId=${agenda.id}`).then((r) => r.json()),
-                fetch(`/api/votes/detail?agendaId=${agenda.id}`).then((r) => r.json()),
+                fetch('/api/questions?agendaId=' + agenda.id).then((r) => r.json()),
+                fetch('/api/responses?agendaId=' + agenda.id).then((r) => r.json()),
+                fetch('/api/votes?agendaId=' + agenda.id).then((r) => r.json()),
+                fetch('/api/votes/detail?agendaId=' + agenda.id).then((r) => r.json()),
               ])
               dataMap[agenda.id] = {
                 agenda,
@@ -107,17 +107,13 @@ export default function AdminDashboard() {
     const data = agendaData[agendaId]
     if (!data) return
 
-    setExporting(type)
+    const exportKey = agendaId + '-' + type
+    setExporting(exportKey)
     try {
       const title = data.agenda.title
 
       if (type === 'survey-anon') {
-        generateSurveyAnonymousPDF(
-          title,
-          data.questions,
-          data.responses,
-          data.totalResponden
-        )
+        await generateSurveyAnonymousPDF(agendaId, title)
       } else if (type === 'survey-full') {
         generateSurveyFullPDF(title, data.responses, data.totalResponden)
       } else if (type === 'vote-anon') {
@@ -148,6 +144,17 @@ export default function AdminDashboard() {
 
   return (
     <div className="animate-fade-in">
+      {/* Back to Survey */}
+      <Link
+        href="/survey"
+        className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-emerald-600 transition-colors mb-6"
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+        </svg>
+        Kembali ke Survey
+      </Link>
+
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-800">Dashboard Admin</h1>
@@ -158,21 +165,27 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-3 gap-4 mb-8">
         <div className="glass rounded-2xl p-5 text-center hover-lift">
           <div className="w-10 h-10 mx-auto mb-2 rounded-xl bg-blue-100 flex items-center justify-center">
-            <span className="text-lg">📅</span>
+            <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+            </svg>
           </div>
           <p className="text-2xl font-bold text-slate-800">{totalAgendas}</p>
           <p className="text-xs text-slate-500 mt-0.5">Total Agenda</p>
         </div>
         <div className="glass rounded-2xl p-5 text-center hover-lift">
           <div className="w-10 h-10 mx-auto mb-2 rounded-xl bg-emerald-100 flex items-center justify-center">
-            <span className="text-lg">💬</span>
+            <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+            </svg>
           </div>
           <p className="text-2xl font-bold text-emerald-600">{totalResponses}</p>
           <p className="text-xs text-slate-500 mt-0.5">Jawaban Survey</p>
         </div>
         <div className="glass rounded-2xl p-5 text-center hover-lift">
           <div className="w-10 h-10 mx-auto mb-2 rounded-xl bg-amber-100 flex items-center justify-center">
-            <span className="text-lg">🏆</span>
+            <svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+            </svg>
           </div>
           <p className="text-2xl font-bold text-amber-600">{totalVotes}</p>
           <p className="text-xs text-slate-500 mt-0.5">Total Vote</p>
@@ -182,11 +195,11 @@ export default function AdminDashboard() {
       {/* Quick Links */}
       <div className="flex gap-3 mb-8">
         <Link href="/admin/agenda" className="flex-1 glass rounded-xl p-4 text-center hover-lift transition-all">
-          <p className="text-sm font-semibold text-slate-700">📅 Kelola Agenda</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">Buat & atur agenda</p>
+          <p className="text-sm font-semibold text-slate-700">Kelola Agenda</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">Buat dan atur agenda survey</p>
         </Link>
         <Link href="/admin/anggota" className="flex-1 glass rounded-xl p-4 text-center hover-lift transition-all">
-          <p className="text-sm font-semibold text-slate-700">👥 Kelola Anggota</p>
+          <p className="text-sm font-semibold text-slate-700">Kelola Anggota</p>
           <p className="text-[11px] text-slate-400 mt-0.5">Lihat data anggota</p>
         </Link>
       </div>
@@ -194,7 +207,9 @@ export default function AdminDashboard() {
       {/* All Agendas */}
       {agendas.length === 0 ? (
         <div className="glass rounded-2xl text-center py-16 text-slate-400">
-          <p className="text-4xl mb-3">📋</p>
+          <svg className="w-12 h-12 mx-auto mb-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+          </svg>
           <p className="text-lg font-medium">Belum ada agenda</p>
           <Link href="/admin/agenda" className="text-emerald-600 text-sm mt-2 inline-block hover:underline">
             + Buat agenda baru
@@ -216,17 +231,17 @@ export default function AdminDashboard() {
                   className="w-full flex items-center justify-between p-5 hover:bg-slate-50/50 transition-colors text-left"
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`w-3 h-3 rounded-full ${agenda.is_active ? 'bg-emerald-500 shadow-lg shadow-emerald-500/30' : 'bg-slate-300'}`} />
+                    <div className={'w-3 h-3 rounded-full ' + (agenda.is_active ? 'bg-emerald-500 shadow-lg shadow-emerald-500/30' : 'bg-slate-300')} />
                     <div>
                       <h3 className="font-bold text-slate-800 text-lg">{agenda.title}</h3>
                       <div className="flex items-center gap-4 text-xs text-slate-400 mt-1">
-                        <span className="flex items-center gap-1">📋 {data.questions.length} pertanyaan</span>
-                        <span className="flex items-center gap-1">💬 {data.totalResponden} jawaban</span>
-                        <span className="flex items-center gap-1">🏆 {data.totalVotes} vote</span>
+                        <span>{data.questions.length} pertanyaan</span>
+                        <span>{data.totalResponden} jawaban</span>
+                        <span>{data.totalVotes} vote</span>
                       </div>
                     </div>
                   </div>
-                  <svg className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg className={'w-5 h-5 text-slate-400 transition-transform duration-300 ' + (isExpanded ? 'rotate-180' : '')} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
                   </svg>
                 </button>
@@ -238,64 +253,62 @@ export default function AdminDashboard() {
                     <div className="flex flex-wrap items-center gap-2 mb-5">
                       <button
                         onClick={() => setTab(agenda.id, 'responses')}
-                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                          currentTab === 'responses'
+                        className={'px-4 py-2 rounded-xl text-sm font-medium transition-all ' +
+                          (currentTab === 'responses'
                             ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25'
-                            : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-                        }`}
+                            : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200')}
                       >
-                        💬 Jawaban ({data.totalResponden})
+                        Jawaban ({data.totalResponden})
                       </button>
                       <button
                         onClick={() => setTab(agenda.id, 'votes')}
-                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                          currentTab === 'votes'
+                        className={'px-4 py-2 rounded-xl text-sm font-medium transition-all ' +
+                          (currentTab === 'votes'
                             ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25'
-                            : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-                        }`}
+                            : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200')}
                       >
-                        🏆 Vote ({data.totalVotes})
+                        Vote ({data.totalVotes})
                       </button>
                       <Link
-                        href={`/admin/agenda/${agenda.id}`}
+                        href={'/admin/agenda/' + agenda.id}
                         className="px-4 py-2 rounded-xl text-sm font-medium bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors border border-blue-200"
                       >
-                        ⚙️ Kelola
+                        Kelola
                       </Link>
 
                       {/* PDF Export Buttons */}
                       <div className="ml-auto flex flex-wrap gap-1.5">
                         <button
                           onClick={() => handleExport(agenda.id, 'survey-anon')}
-                          disabled={exporting === 'survey-anon' || data.totalResponden === 0}
+                          disabled={exporting === agenda.id + '-survey-anon' || data.totalResponden === 0}
                           className="px-3 py-1.5 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors border border-purple-200 disabled:opacity-40 disabled:cursor-not-allowed"
                           title="Download jawaban survey tanpa nama (anonim)"
                         >
-                          {exporting === 'survey-anon' ? '⏳' : '📄'} Survey Anonim
+                          {exporting === agenda.id + '-survey-anon' ? 'Membuat...' : 'Survey Anonim'}
                         </button>
                         <button
                           onClick={() => handleExport(agenda.id, 'survey-full')}
-                          disabled={exporting === 'survey-full' || data.totalResponden === 0}
+                          disabled={exporting === agenda.id + '-survey-full' || data.totalResponden === 0}
                           className="px-3 py-1.5 rounded-lg text-[11px] font-medium bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors border border-indigo-200 disabled:opacity-40 disabled:cursor-not-allowed"
                           title="Download jawaban survey dengan nama lengkap"
                         >
-                          {exporting === 'survey-full' ? '⏳' : '📋'} Survey Lengkap
+                          {exporting === agenda.id + '-survey-full' ? 'Membuat...' : 'Survey Lengkap'}
                         </button>
                         <button
                           onClick={() => handleExport(agenda.id, 'vote-anon')}
-                          disabled={exporting === 'vote-anon' || data.totalVotes === 0}
+                          disabled={exporting === agenda.id + '-vote-anon' || data.totalVotes === 0}
                           className="px-3 py-1.5 rounded-lg text-[11px] font-medium bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors border border-amber-200 disabled:opacity-40 disabled:cursor-not-allowed"
-                          title="Download hasil vote tanpa detail siapa vote siapa"
+                          title="Download hasil vote tanpa detail"
                         >
-                          {exporting === 'vote-anon' ? '⏳' : '🏆'} Vote Anonim
+                          {exporting === agenda.id + '-vote-anon' ? 'Membuat...' : 'Vote Anonim'}
                         </button>
                         <button
                           onClick={() => handleExport(agenda.id, 'vote-full')}
-                          disabled={exporting === 'vote-full' || data.totalVotes === 0}
+                          disabled={exporting === agenda.id + '-vote-full' || data.totalVotes === 0}
                           className="px-3 py-1.5 rounded-lg text-[11px] font-medium bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors border border-rose-200 disabled:opacity-40 disabled:cursor-not-allowed"
-                          title="Download detail lengkap siapa vote siapa"
+                          title="Download detail siapa vote siapa"
                         >
-                          {exporting === 'vote-full' ? '⏳' : '📊'} Vote Lengkap
+                          {exporting === agenda.id + '-vote-full' ? 'Membuat...' : 'Vote Lengkap'}
                         </button>
                       </div>
                     </div>
@@ -305,7 +318,6 @@ export default function AdminDashboard() {
                       <div>
                         {data.responses.length === 0 ? (
                           <div className="text-center py-12 text-slate-400">
-                            <p className="text-3xl mb-2">💬</p>
                             <p>Belum ada jawaban masuk</p>
                           </div>
                         ) : (
@@ -331,7 +343,7 @@ export default function AdminDashboard() {
                                         {a.question.question_type === 'rating' ? (
                                           <div className="flex items-center gap-1">
                                             {[1, 2, 3, 4, 5].map((s) => (
-                                              <svg key={s} className={`w-4 h-4 ${parseInt(a.response_text) >= s ? 'text-amber-400' : 'text-slate-200'}`} fill="currentColor" viewBox="0 0 24 24">
+                                              <svg key={s} className={'w-4 h-4 ' + (parseInt(a.response_text) >= s ? 'text-amber-400' : 'text-slate-200')} fill="currentColor" viewBox="0 0 24 24">
                                                 <path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
                                               </svg>
                                             ))}
@@ -367,10 +379,14 @@ export default function AdminDashboard() {
                                 const pct = data.totalVotes > 0 ? (v.vote_count / data.totalVotes) * 100 : 0
                                 const isWinner = i === 0
                                 return (
-                                  <div key={i} className="animate-slide-up" style={{ animationDelay: `${i * 0.05}s` }}>
+                                  <div key={i} className="animate-slide-up" style={{ animationDelay: (i * 0.05) + 's' }}>
                                     <div className="flex items-center justify-between mb-1">
                                       <div className="flex items-center gap-2">
-                                        {isWinner && <span className="text-base">🏆</span>}
+                                        {isWinner && (
+                                          <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+                                          </svg>
+                                        )}
                                         <span className="text-sm font-medium text-slate-700">{v.full_name}</span>
                                         <span className="text-[11px] text-slate-400">{v.nim}</span>
                                       </div>
@@ -378,8 +394,8 @@ export default function AdminDashboard() {
                                     </div>
                                     <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
                                       <div
-                                        className={`h-full rounded-full transition-all duration-1000 ${isWinner ? 'bg-gradient-to-r from-emerald-400 to-teal-500' : 'bg-slate-300'}`}
-                                        style={{ width: `${pct}%` }}
+                                        className={'h-full rounded-full transition-all duration-1000 ' + (isWinner ? 'bg-gradient-to-r from-emerald-400 to-teal-500' : 'bg-slate-300')}
+                                        style={{ width: pct + '%' }}
                                       />
                                     </div>
                                   </div>
@@ -411,7 +427,7 @@ export default function AdminDashboard() {
                                         <p className="font-medium text-slate-700">{vd.voter.full_name}</p>
                                         <p className="text-[10px] text-slate-400">{vd.voter.nim}</p>
                                       </td>
-                                      <td className="px-4 py-2 text-center text-emerald-500 font-bold">→</td>
+                                      <td className="px-4 py-2 text-center text-emerald-500 font-bold">-&gt;</td>
                                       <td className="px-4 py-2">
                                         <p className="font-medium text-slate-700">{vd.voted_for.full_name}</p>
                                         <p className="text-[10px] text-slate-400">{vd.voted_for.nim}</p>

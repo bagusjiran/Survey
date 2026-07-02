@@ -1,11 +1,6 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
-interface SurveyResponse {
-  member?: { full_name: string; nim: string }
-  answers: { question: { question_text: string; question_type: string }; response_text: string }[]
-}
-
 interface VoteDetail {
   voter: { full_name: string; nim: string }
   voted_for: { full_name: string; nim: string }
@@ -18,25 +13,21 @@ interface VoteCandidate {
 }
 
 function addHeader(doc: jsPDF, title: string, subtitle: string) {
-  // Green header bar
   doc.setFillColor(16, 185, 129)
   doc.rect(0, 0, 210, 35, 'F')
 
-  // Title
   doc.setTextColor(255, 255, 255)
   doc.setFontSize(16)
   doc.setFont('helvetica', 'bold')
   doc.text('Survey UKM Kerohanian Islam', 14, 15)
   doc.setFontSize(10)
   doc.setFont('helvetica', 'normal')
-  doc.text('Universitas Teknologi Ronggolawe — Cepu', 14, 22)
+  doc.text('Universitas Teknologi Ronggolawe - Cepu', 14, 22)
 
-  // Subtitle
   doc.setFontSize(12)
   doc.setFont('helvetica', 'bold')
   doc.text(title, 14, 30)
 
-  // Info line
   doc.setTextColor(100, 100, 100)
   doc.setFontSize(9)
   doc.setFont('helvetica', 'normal')
@@ -54,31 +45,38 @@ function addFooter(doc: jsPDF) {
     doc.setPage(i)
     doc.setFontSize(8)
     doc.setTextColor(148, 163, 184)
-    doc.text('UKM Kerohanian Islam UTR Cepu — Halaman ' + i + ' dari ' + pageCount, 14, 290)
+    doc.text('UKM Kerohanian Islam UTR Cepu - Halaman ' + i + ' dari ' + pageCount, 14, 290)
     doc.text('Dokumen ini bersifat rahasia', 196, 290, { align: 'right' })
   }
 }
 
-// PDF 1: Survey Anonim (tanpa nama pemberi jawaban)
-export function generateSurveyAnonymousPDF(
-  agendaTitle: string,
-  questions: { question_text: string; question_type: string }[],
-  responses: { question: { question_text: string; question_type: string }; answers: string[] }[],
-  totalResponden: number
-) {
+// PDF 1: Survey Anonim — fetch data langsung dari API (view=member)
+export async function generateSurveyAnonymousPDF(agendaId: string, agendaTitle: string) {
+  // Fetch anonymous data from API
+  const res = await fetch('/api/responses?agendaId=' + agendaId + '&view=member')
+  if (!res.ok) throw new Error('Gagal mengambil data survey')
+  const data = await res.json()
+
+  const responses: { question: { question_text: string; question_type: string }; answers: string[] }[] = data.responses || []
+  const totalResponden: number = data.totalResponden || 0
+
+  if (responses.length === 0) {
+    alert('Belum ada jawaban survey untuk agenda ini')
+    return
+  }
+
   const doc = new jsPDF()
-  addHeader(doc, 'Jawaban Survey — Anonim', 'Agenda: ' + agendaTitle + '  |  ' + totalResponden + ' responden')
+  addHeader(doc, 'Jawaban Survey - Anonim', 'Agenda: ' + agendaTitle + '  |  ' + totalResponden + ' responden')
 
   let y = 55
 
   responses.forEach((item, i) => {
-    // Check if we need a new page
     if (y > 250) {
       doc.addPage()
       y = 20
     }
 
-    // Question number and text
+    // Question
     doc.setFillColor(236, 253, 245)
     doc.roundedRect(14, y, 182, 8, 1, 1, 'F')
     doc.setTextColor(5, 150, 105)
@@ -88,24 +86,21 @@ export function generateSurveyAnonymousPDF(
     y += 12
 
     if (item.question.question_type === 'rating') {
-      // Rating summary
-      const ratings = item.answers.map(a => parseInt(a)).filter(n => !isNaN(n))
-      const avg = ratings.length > 0 ? (ratings.reduce((s, n) => s + n, 0) / ratings.length).toFixed(1) : '-'
+      const ratings = item.answers.map((a: string) => parseInt(a)).filter((n: number) => !isNaN(n))
+      const avg = ratings.length > 0 ? (ratings.reduce((s: number, n: number) => s + n, 0) / ratings.length).toFixed(1) : '-'
       doc.setTextColor(51, 65, 85)
       doc.setFontSize(9)
       doc.setFont('helvetica', 'normal')
       doc.text('Rating rata-rata: ' + avg + ' / 5  (' + ratings.length + ' responden)', 18, y)
       y += 6
 
-      // Distribution
       for (let s = 5; s >= 1; s--) {
-        const count = ratings.filter(n => n === s).length
+        const count = ratings.filter((n: number) => n === s).length
         const pct = ratings.length > 0 ? Math.round((count / ratings.length) * 100) : 0
-        doc.text(s + ' ★: ' + count + ' orang (' + pct + '%)', 18, y)
+        doc.text(s + ' bintang: ' + count + ' orang (' + pct + '%)', 18, y)
         y += 5
       }
     } else {
-      // Text answers
       if (item.answers.length === 0) {
         doc.setTextColor(148, 163, 184)
         doc.setFontSize(9)
@@ -113,7 +108,7 @@ export function generateSurveyAnonymousPDF(
         doc.text('Belum ada jawaban', 18, y)
         y += 6
       } else {
-        const tableData = item.answers.map((ans, j) => [String(j + 1), ans || '-'])
+        const tableData = item.answers.map((ans: string, j: number) => [String(j + 1), ans || '-'])
         autoTable(doc, {
           startY: y,
           head: [['#', 'Jawaban']],
@@ -138,19 +133,24 @@ export function generateSurveyAnonymousPDF(
 // PDF 2: Survey Lengkap (dengan nama pemberi jawaban)
 export function generateSurveyFullPDF(
   agendaTitle: string,
-  responses: SurveyResponse[],
+  responses: any[],
   totalResponden: number
 ) {
+  if (responses.length === 0) {
+    alert('Belum ada jawaban survey untuk agenda ini')
+    return
+  }
+
   const doc = new jsPDF()
-  addHeader(doc, 'Jawaban Survey — Lengkap', 'Agenda: ' + agendaTitle + '  |  ' + totalResponden + ' responden')
+  addHeader(doc, 'Jawaban Survey - Lengkap', 'Agenda: ' + agendaTitle + '  |  ' + totalResponden + ' responden')
 
   const tableData: string[][] = []
-  responses.forEach((entry) => {
+  responses.forEach((entry: any) => {
     const name = entry.member?.full_name || 'Unknown'
     const nim = entry.member?.nim || '-'
-    entry.answers.forEach((a) => {
+    entry.answers.forEach((a: any) => {
       const answerText = a.question.question_type === 'rating'
-        ? a.response_text + ' / 5 ★'
+        ? a.response_text + ' / 5'
         : (a.response_text || '-')
       tableData.push([name, nim, a.question.question_text, answerText])
     })
@@ -182,15 +182,20 @@ export function generateVoteAnonymousPDF(
   candidates: VoteCandidate[],
   totalVotes: number
 ) {
+  if (candidates.length === 0) {
+    alert('Belum ada vote untuk agenda ini')
+    return
+  }
+
   const doc = new jsPDF()
-  addHeader(doc, 'Hasil Vote — Anonim', 'Agenda: ' + agendaTitle + '  |  ' + totalVotes + ' total vote')
+  addHeader(doc, 'Hasil Vote - Anonim', 'Agenda: ' + agendaTitle + '  |  ' + totalVotes + ' total vote')
 
   const maxVotes = candidates.length > 0 ? candidates[0].vote_count : 0
 
   const tableData = candidates.map((c, i) => {
     const pct = totalVotes > 0 ? ((c.vote_count / totalVotes) * 100).toFixed(1) : '0'
-    const winner = c.vote_count === maxVotes && maxVotes > 0 ? ' 🏆' : ''
-    return [String(i + 1) + winner, c.full_name, String(c.vote_count), pct + '%']
+    const marker = c.vote_count === maxVotes && maxVotes > 0 ? ' *' : ''
+    return [String(i + 1) + marker, c.full_name, String(c.vote_count), pct + '%']
   })
 
   autoTable(doc, {
@@ -220,7 +225,7 @@ export function generateVoteFullPDF(
   totalVotes: number
 ) {
   const doc = new jsPDF()
-  addHeader(doc, 'Hasil Vote — Detail Lengkap', 'Agenda: ' + agendaTitle + '  |  ' + totalVotes + ' total vote')
+  addHeader(doc, 'Hasil Vote - Detail Lengkap', 'Agenda: ' + agendaTitle + '  |  ' + totalVotes + ' total vote')
 
   // Section 1: Summary
   doc.setTextColor(30, 41, 59)
@@ -248,7 +253,7 @@ export function generateVoteFullPDF(
     },
   })
 
-  // Section 2: Detail siapa vote siapa
+  // Section 2: Detail
   const detailY = (doc as any).lastAutoTable.finalY + 12
   doc.setTextColor(30, 41, 59)
   doc.setFontSize(11)
@@ -259,7 +264,7 @@ export function generateVoteFullPDF(
     String(i + 1),
     v.voter.full_name,
     v.voter.nim,
-    '→',
+    '->',
     v.voted_for.full_name,
     v.voted_for.nim,
   ])
