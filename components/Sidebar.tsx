@@ -7,6 +7,7 @@ import { useState } from 'react'
 const navItems = [
   { href: '/admin', label: 'Dashboard', icon: 'bi-grid-1x2' },
   { href: '/admin/anggota', label: 'Kelola Anggota', icon: 'bi-people' },
+  { href: '/admin/roles', label: 'Kelola Role', icon: 'bi-shield-lock' },
   { href: '/admin/agenda', label: 'Kelola Agenda', icon: 'bi-calendar3' },
   { href: '/admin/audit-log', label: 'Audit Log', icon: 'bi-shield-check' },
   { href: '/survey', label: 'Kembali ke Survey', icon: 'bi-arrow-left-circle', external: true },

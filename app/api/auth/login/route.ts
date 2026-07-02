@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     // Find member — use specific columns only
     const { data: member, error } = await supabase
       .from('members')
-      .select('id, full_name, nim, is_admin')
+      .select('id, full_name, nim, is_admin, role')
       .ilike('full_name', fullName.trim())
       .eq('nim', nim.trim())
       .single()
@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
       fullName: member.full_name,
       nim: member.nim,
       isAdmin: member.is_admin === true,
+      role: member.role || (member.is_admin ? 'super_admin' : 'member'),
     })
 
     const cookieOptions = {

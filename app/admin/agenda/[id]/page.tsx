@@ -52,11 +52,16 @@ export default function AgendaDetailPage({ params }: { params: Promise<{ id: str
   const [qForm, setQForm] = useState({ question_text: '', question_type: 'text', options: [''] })
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
-  const [activeTab, setActiveTab] = useState<'questions' | 'votes' | 'responses'>('questions')
+  const [activeTab, setActiveTab] = useState<'questions' | 'votes' | 'responses' | 'schedule'>('questions')
   const [adminVotes, setAdminVotes] = useState<string[]>([])
   const [votingLoading, setVotingLoading] = useState(false)
   const [responses, setResponses] = useState<any[]>([])
   const [totalResponden, setTotalResponden] = useState(0)
+  const [selectedQuestions, setSelectedQuestions] = useState<string[]>([])
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [scheduleStart, setScheduleStart] = useState('')
+  const [scheduleEnd, setScheduleEnd] = useState('')
+  const [savingSchedule, setSavingSchedule] = useState(false)
 
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type })
@@ -85,6 +90,9 @@ export default function AgendaDetailPage({ params }: { params: Promise<{ id: str
       setMembers(membersData.members || [])
       setResponses(responsesData.responses || [])
       setTotalResponden(responsesData.totalResponden || 0)
+      // Load schedule data
+      if (agendaData.agenda?.schedule_start) setScheduleStart(agendaData.agenda.schedule_start.slice(0, 16))
+      if (agendaData.agenda?.schedule_end) setScheduleEnd(agendaData.agenda.schedule_end.slice(0, 16))
     } catch {
       showToast('Gagal memuat data', 'error')
     } finally {
@@ -200,6 +208,70 @@ export default function AgendaDetailPage({ params }: { params: Promise<{ id: str
     setQForm({ question_text: '', question_type: 'text', options: [''] })
   }
 
+  const toggleSelectQuestion = (id: string) => {
+    setSelectedQuestions(prev =>
+      prev.includes(id) ? prev.filter(q => q !== id) : [...prev, id]
+    )
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedQuestions.length === questions.length) {
+      setSelectedQuestions([])
+    } else {
+      setSelectedQuestions(questions.map(q => q.id))
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedQuestions.length === 0) return
+    if (!confirm('Yakin ingin menghapus ' + selectedQuestions.length + ' pertanyaan?')) return
+
+    setBulkDeleting(true)
+    try {
+      const res = await fetch('/api/questions/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedQuestions, action: 'delete' }),
+      })
+      if (!res.ok) {
+        showToast('Gagal menghapus pertanyaan', 'error')
+        return
+      }
+      showToast(selectedQuestions.length + ' pertanyaan berhasil dihapus', 'success')
+      setSelectedQuestions([])
+      fetchData()
+    } catch {
+      showToast('Terjadi kesalahan', 'error')
+    } finally {
+      setBulkDeleting(false)
+    }
+  }
+
+  const handleSaveSchedule = async () => {
+    if (!agenda) return
+    setSavingSchedule(true)
+    try {
+      const res = await fetch('/api/agendas/schedule', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: agenda.id,
+          schedule_start: scheduleStart || null,
+          schedule_end: scheduleEnd || null,
+        }),
+      })
+      if (!res.ok) {
+        showToast('Gagal menyimpan jadwal', 'error')
+        return
+      }
+      showToast('Jadwal berhasil disimpan', 'success')
+    } catch {
+      showToast('Terjadi kesalahan', 'error')
+    } finally {
+      setSavingSchedule(false)
+    }
+  }
+
   const handleAdminVote = async () => {
     if (adminVotes.length === 0) {
       showToast('Pilih minimal 1 mahasiswa', 'error')
@@ -295,20 +367,50 @@ export default function AgendaDetailPage({ params }: { params: Promise<{ id: str
         >
           Jawaban ({responses.length})
         </button>
+        <button
+          onClick={() => setActiveTab('schedule')}
+          className={`px-5 py-2.5 rounded-xl font-medium text-sm transition-all ${
+            activeTab === 'schedule'
+              ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25'
+              : 'bg-white text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          <i className="bi bi-clock mr-1" />Jadwal
+        </button>
       </div>
 
       {/* Questions Tab */}
       {activeTab === 'questions' && (
         <div>
-          <button
-            onClick={() => { if (editingQ) { cancelForm() } else { setShowAddQ(!showAddQ) } }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 text-white font-medium text-sm hover:bg-emerald-600 transition-colors mb-4"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            {showAddQ ? 'Tutup Form' : 'Tambah Pertanyaan'}
-          </button>
+          <div className="flex items-center gap-2 mb-4">
+            <button
+              onClick={() => { if (editingQ) { cancelForm() } else { setShowAddQ(!showAddQ) } }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 text-white font-medium text-sm hover:bg-emerald-600 transition-colors"
+            >
+              <i className="bi bi-plus-lg" />
+              {showAddQ ? 'Tutup Form' : 'Tambah Pertanyaan'}
+            </button>
+
+            {selectedQuestions.length > 0 && (
+              <button
+                onClick={handleBulkDelete}
+                disabled={bulkDeleting}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500 text-white font-medium text-sm hover:bg-red-600 transition-colors disabled:opacity-50"
+              >
+                <i className={bulkDeleting ? 'bi bi-arrow-repeat animate-spin' : 'bi bi-trash'} />
+                Hapus {selectedQuestions.length} Terpilih
+              </button>
+            )}
+
+            {questions.length > 1 && (
+              <button
+                onClick={toggleSelectAll}
+                className="ml-auto text-xs text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+              >
+                {selectedQuestions.length === questions.length ? 'Batal Pilih Semua' : 'Pilih Semua'}
+              </button>
+            )}
+          </div>
 
           {showAddQ && (
             <div className="glass rounded-2xl p-6 mb-4 animate-slide-up">
@@ -406,7 +508,14 @@ export default function AgendaDetailPage({ params }: { params: Promise<{ id: str
               {questions.map((q, i) => (
                 <div key={q.id} className="glass rounded-2xl p-5 hover-lift animate-slide-up">
                   <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
+                    <div className="flex items-start gap-3 flex-1">
+                      <input
+                        type="checkbox"
+                        checked={selectedQuestions.includes(q.id)}
+                        onChange={() => toggleSelectQuestion(q.id)}
+                        className="mt-1 w-4 h-4 text-emerald-500 rounded border-slate-300 dark:border-slate-600"
+                      />
+                      <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold flex items-center justify-center">
                           {i + 1}
@@ -432,6 +541,7 @@ export default function AgendaDetailPage({ params }: { params: Promise<{ id: str
                           ))}
                         </div>
                       )}
+                    </div>
                     </div>
                     <div className="flex items-center gap-1">
                       <button
@@ -602,6 +712,58 @@ export default function AgendaDetailPage({ params }: { params: Promise<{ id: str
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Schedule Tab */}
+      {activeTab === 'schedule' && (
+        <div className="glass rounded-2xl p-6 animate-slide-up">
+          <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-2">Jadwal Otomatis</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">
+            Atur kapan agenda otomatis aktif dan non-aktif. Kosongkan jika tidak perlu jadwal otomatis.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                <i className="bi bi-play-circle mr-1 text-emerald-500" />Aktif Otomatis Pada
+              </label>
+              <input
+                type="datetime-local"
+                value={scheduleStart}
+                onChange={(e) => setScheduleStart(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:border-emerald-400 transition-all"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">Agenda akan otomatis aktif pada waktu ini</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                <i className="bi bi-stop-circle mr-1 text-red-500" />Non-aktif Otomatis Pada
+              </label>
+              <input
+                type="datetime-local"
+                value={scheduleEnd}
+                onChange={(e) => setScheduleEnd(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:border-emerald-400 transition-all"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">Agenda akan otomatis non-aktif pada waktu ini</p>
+            </div>
+          </div>
+
+          {scheduleStart && scheduleEnd && new Date(scheduleEnd) <= new Date(scheduleStart) && (
+            <div className="mb-4 p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-xs">
+              <i className="bi bi-exclamation-triangle mr-1" />
+              Waktu non-aktif harus setelah waktu aktif
+            </div>
+          )}
+
+          <button
+            onClick={handleSaveSchedule}
+            disabled={savingSchedule || (!!scheduleStart && !!scheduleEnd && new Date(scheduleEnd) <= new Date(scheduleStart))}
+            className="px-6 py-2.5 rounded-xl bg-emerald-500 text-white font-medium text-sm hover:bg-emerald-600 transition-colors disabled:opacity-50"
+          >
+            {savingSchedule ? 'Menyimpan...' : 'Simpan Jadwal'}
+          </button>
         </div>
       )}
     </div>

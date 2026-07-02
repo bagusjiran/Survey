@@ -12,6 +12,7 @@ export interface SessionData {
   fullName: string
   nim: string
   isAdmin: boolean
+  role: string // super_admin, moderator, viewer, member
 }
 
 export async function createSession(data: SessionData): Promise<string> {

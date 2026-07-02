@@ -6,10 +6,10 @@ export async function GET() {
   if (!session) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
-  // Return only safe fields — exclude nim from general session endpoint
   return NextResponse.json({
     memberId: session.memberId,
     fullName: session.fullName,
     isAdmin: session.isAdmin,
+    role: session.role || 'member',
   })
 }
