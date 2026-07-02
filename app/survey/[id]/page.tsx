@@ -184,8 +184,11 @@ export default function SurveyFormPage({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="min-h-screen animated-bg islamic-pattern">
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {toast?.message}
+      </div>
       {toast && (
-        <div className={`fixed top-4 right-4 z-50 toast-enter px-5 py-3 rounded-xl shadow-lg text-white text-sm font-medium ${
+        <div role="alert" className={`fixed top-4 right-4 z-50 toast-enter px-5 py-3 rounded-xl shadow-lg text-white text-sm font-medium ${
           toast.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'
         }`}>
           {toast.message}

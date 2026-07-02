@@ -1,9 +1,11 @@
 import { SignJWT, jwtVerify } from 'jose'
 import { cookies } from 'next/headers'
 
-const secretKey = new TextEncoder().encode(
-  process.env.SESSION_SECRET || 'fallback-secret-change-in-production'
-)
+const secretKey = new TextEncoder().encode(process.env.SESSION_SECRET)
+
+if (!process.env.SESSION_SECRET) {
+  console.error('[SECURITY] SESSION_SECRET is not set! Set it in .env.local')
+}
 
 export interface SessionData {
   memberId: string
@@ -16,6 +18,7 @@ export async function createSession(data: SessionData): Promise<string> {
   return new SignJWT({ ...data } as any)
     .setProtectedHeader({ alg: 'HS256' })
     .setExpirationTime('24h')
+    .setIssuedAt()
     .sign(secretKey)
 }
 

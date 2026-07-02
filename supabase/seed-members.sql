@@ -8,7 +8,7 @@ DELETE FROM members WHERE nim != '24550011';
 
 -- Insert semua anggota (ON CONFLICT = update nama jika sudah ada)
 INSERT INTO members (full_name, nim, is_admin) VALUES
-  ('Moh Bagus Jiran Riskohar', '24550011', TRUE),
+  ('Mohamad Bagus Jiran Riskohar', '24550011', TRUE),
   ('Olivia Cahyani Agustina', '24550023', FALSE),
   ('Zifa Aulia Marfu`atun', '24150062', FALSE),
   ('Alfareza lail Ramadhan', '24550009', FALSE),
@@ -20,7 +20,7 @@ INSERT INTO members (full_name, nim, is_admin) VALUES
   ('Satria Fahri Arullah', '25550035', FALSE),
   ('Mutiara Ramadhani', '25550014', FALSE),
   ('Kirana Cinta Mentari', '25550012', FALSE),
-  ('Kirani Cinta Mentari', '25550039', TRUE),
+  ('Kirani Cinta Mentari', '25550039', FALSE),
   ('Mun''im Abdulloh', '25350075', FALSE),
   ('Ilham Maulana rifqi', '25250020', FALSE),
   ('AFRI YULIANTO WIBOWO', '25250019', FALSE),

@@ -50,7 +50,8 @@ CREATE TABLE IF NOT EXISTS active_student_votes (
   agenda_id UUID REFERENCES agendas(id) ON DELETE CASCADE,
   voter_id UUID REFERENCES members(id) ON DELETE CASCADE,
   voted_for_id UUID REFERENCES members(id) ON DELETE CASCADE,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(agenda_id, voter_id, voted_for_id)
 );
 
 -- Seed admin account

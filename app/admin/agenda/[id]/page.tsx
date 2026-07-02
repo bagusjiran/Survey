@@ -131,6 +131,7 @@ export default function AgendaDetailPage({ params }: { params: Promise<{ id: str
   }
 
   const handleDeleteQuestion = async (id: string) => {
+    if (!confirm('Yakin ingin menghapus pertanyaan ini?')) return
     try {
       const res = await fetch(`/api/questions?id=${id}`, { method: 'DELETE' })
       if (!res.ok) {
@@ -190,8 +191,11 @@ export default function AgendaDetailPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="animate-fade-in">
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {toast?.message}
+      </div>
       {toast && (
-        <div className={`fixed top-4 right-4 z-50 toast-enter px-5 py-3 rounded-xl shadow-lg text-white text-sm font-medium ${
+        <div role="alert" className={`fixed top-4 right-4 z-50 toast-enter px-5 py-3 rounded-xl shadow-lg text-white text-sm font-medium ${
           toast.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'
         }`}>
           {toast.message}

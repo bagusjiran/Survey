@@ -86,7 +86,7 @@ export default function LoginClient({ members }: { members: Member[] }) {
     <div className="login-page">
       <div className="login-container">
         <div className="login-logo-wrap">
-          <div className="login-logo-icon">
+          <div className="login-logo-icon" aria-hidden="true">
             <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth="1.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" />
             </svg>
@@ -103,6 +103,7 @@ export default function LoginClient({ members }: { members: Member[] }) {
             action="/api/auth/login"
             onSubmit={handleSubmit}
             autoComplete="off"
+            aria-label="Form Login"
           >
             <input type="hidden" name="fullName" value={selectedName} />
             <input type="hidden" name="nim" value={nim} />
@@ -116,6 +117,8 @@ export default function LoginClient({ members }: { members: Member[] }) {
                 onChange={handleNameChange}
                 required
                 className="login-select"
+                aria-required="true"
+                aria-describedby={error && !selectedName ? 'login-error' : undefined}
               >
                 <option value="">-- Pilih Nama --</option>
                 {members.map(function (m) {
@@ -139,17 +142,21 @@ export default function LoginClient({ members }: { members: Member[] }) {
                 spellCheck={false}
                 required
                 className="login-input"
+                aria-required="true"
+                aria-describedby={error ? 'login-error' : 'nim-hint'}
               />
               {!selectedName && (
-                <p className="login-hint">Pilih nama terlebih dahulu</p>
+                <p id="nim-hint" className="login-hint" role="status">Pilih nama terlebih dahulu</p>
               )}
             </div>
 
             {error && (
-              <div className="login-error">{error}</div>
+              <div id="login-error" className="login-error" role="alert" aria-live="assertive">
+                {error}
+              </div>
             )}
 
-            <button type="submit" className="login-btn" disabled={loading}>
+            <button type="submit" className="login-btn" disabled={loading} aria-busy={loading}>
               {loading ? 'Memproses...' : 'Masuk'}
             </button>
           </form>

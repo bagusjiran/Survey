@@ -26,6 +26,11 @@ ALTER TABLE survey_responses ADD CONSTRAINT survey_responses_unique
 -- 6. FIX: Hapus kolom admin_code dari members (tidak diperlukan, admin_code di .env)
 ALTER TABLE members DROP COLUMN IF EXISTS admin_code;
 
+-- 6b. FIX: UNIQUE constraint untuk mencegah double vote (race condition)
+ALTER TABLE active_student_votes DROP CONSTRAINT IF EXISTS active_student_votes_agenda_id_voter_id_voted_for_id_key;
+ALTER TABLE active_student_votes ADD CONSTRAINT active_student_votes_unique
+  UNIQUE (agenda_id, voter_id, voted_for_id);
+
 -- 7. FIX: Hapus kolom created_by dari agendas (tidak dipakai di kode)
 -- ALTER TABLE agendas DROP COLUMN IF EXISTS created_by; -- opsional
 
@@ -59,7 +64,7 @@ INSERT INTO members (full_name, nim, is_admin) VALUES
 ON CONFLICT (nim) DO UPDATE SET full_name = EXCLUDED.full_name;
 
 -- 10. Update nama admin jika beda dengan Excel
-UPDATE members SET full_name = 'Moh Bagus Jiran Riskohar' WHERE nim = '24550011';
+UPDATE members SET full_name = 'Mohamad Bagus Jiran Riskohar' WHERE nim = '24550011';
 
 -- 11. Pastikan RLS policies ada (idempotent)
 DO $$

@@ -36,16 +36,21 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ results: [], totalVotes: 0 })
   }
 
-  const { data: members } = await supabase
-    .from('members')
-    .select('id, full_name, nim')
-    .in('id', candidateIds)
+  // Only admin can see NIM in vote results
+  let members: any[] = []
+  if (session.isAdmin) {
+    const { data } = await supabase.from('members').select('id, full_name, nim').in('id', candidateIds)
+    members = data || []
+  } else {
+    const { data } = await supabase.from('members').select('id, full_name').in('id', candidateIds)
+    members = data || []
+  }
 
-  const results = (members || [])
-    .map((m) => ({
+  const results = members
+    .map((m: any) => ({
       voted_for_id: m.id,
       full_name: m.full_name,
-      nim: m.nim,
+      ...(session.isAdmin ? { nim: m.nim } : {}),
       vote_count: voteCounts[m.id] || 0,
     }))
     .sort((a, b) => b.vote_count - a.vote_count)
@@ -67,11 +72,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Data tidak lengkap' }, { status: 400 })
     }
 
+    // Validate agendaId format (UUID)
+    if (typeof agendaId !== 'string' || agendaId.length > 100) {
+      return NextResponse.json({ error: 'agendaId tidak valid' }, { status: 400 })
+    }
+
     const maxVotes = session.isAdmin ? 2 : 1
     if (votedForIds.length === 0 || votedForIds.length > maxVotes) {
       return NextResponse.json({
         error: session.isAdmin ? 'Admin bisa memilih 1-2 mahasiswa' : 'Pilih 1 mahasiswa',
       }, { status: 400 })
+    }
+
+    // Validate each votedForId
+    for (const id of votedForIds) {
+      if (typeof id !== 'string' || id.length > 100) {
+        return NextResponse.json({ error: 'ID tidak valid' }, { status: 400 })
+      }
     }
 
     // Can't vote for yourself
@@ -112,6 +129,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Anda sudah memberikan vote' }, { status: 409 })
     }
 
+    // Delete existing votes before re-inserting (for admin who can change vote)
     if (existingCount > 0) {
       const { error: deleteErr } = await supabase
         .from('active_student_votes')
@@ -133,6 +151,10 @@ export async function POST(request: NextRequest) {
     const { error: insertErr } = await supabase.from('active_student_votes').insert(inserts)
 
     if (insertErr) {
+      // Check for unique constraint violation (race condition protection)
+      if (insertErr.code === '23505') {
+        return NextResponse.json({ error: 'Anda sudah memberikan vote' }, { status: 409 })
+      }
       return NextResponse.json({ error: 'Gagal menyimpan vote' }, { status: 500 })
     }
 
