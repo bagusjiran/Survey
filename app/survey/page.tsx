@@ -38,6 +38,7 @@ export default function SurveyListPage() {
   const [agendaSurvey, setAgendaSurvey] = useState<Record<string, { items: SurveyItem[]; total: number }>>({})
   const [expandedSurvey, setExpandedSurvey] = useState<Record<string, boolean>>({})
   const [loggingOut, setLoggingOut] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const profileRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
 
@@ -111,6 +112,14 @@ export default function SurveyListPage() {
     })
   }
 
+  // Filter agendas based on search
+  var filteredAgendas = agendas.filter(function (a) {
+    if (!searchQuery) return true
+    var q = searchQuery.toLowerCase()
+    return a.title.toLowerCase().includes(q) ||
+      (a.description && a.description.toLowerCase().includes(q))
+  })
+
   if (loading) {
     return (
       <div className="survey-page">
@@ -171,18 +180,46 @@ export default function SurveyListPage() {
           </nav>
         </header>
 
-        <div aria-live="polite" className="sr-only">
-          {loading ? 'Memuat data...' : agendas.length + ' agenda ditemukan'}
+        {/* Search Bar */}
+        <div className="mb-6">
+          <div className="relative">
+            <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Cari agenda..."
+              value={searchQuery}
+              onChange={function (e) { setSearchQuery(e.target.value) }}
+              className="w-full pl-10 pr-4 py-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all text-sm text-slate-800 dark:text-slate-100"
+              style={{ fontSize: '16px' }}
+            />
+            {searchQuery && (
+              <button
+                onClick={function () { setSearchQuery('') }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              >
+                <i className="bi bi-x-lg text-sm" />
+              </button>
+            )}
+          </div>
+          {searchQuery && (
+            <p className="text-xs text-slate-400 mt-2">
+              Ditemukan {filteredAgendas.length} agenda
+            </p>
+          )}
         </div>
 
-        {agendas.length === 0 ? (
+        <div aria-live="polite" className="sr-only">
+          {filteredAgendas.length + ' agenda ditemukan'}
+        </div>
+
+        {filteredAgendas.length === 0 ? (
           <div className="survey-empty" role="status">
             <i className="bi bi-inbox text-4xl mb-3 block text-slate-300" />
-            <p>Belum ada agenda aktif</p>
+            <p>{searchQuery ? 'Tidak ada agenda yang cocok' : 'Belum ada agenda aktif'}</p>
           </div>
         ) : (
           <main className="survey-list" role="list" aria-label="Daftar agenda survey">
-            {agendas.map(function (agenda) {
+            {filteredAgendas.map(function (agenda) {
               var votes = agendaVotes[agenda.id] || []
               var survey = agendaSurvey[agenda.id] || { items: [], total: 0 }
               var isExpanded = expandedSurvey[agenda.id] || false
