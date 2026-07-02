@@ -32,6 +32,16 @@ const navItems = [
       </svg>
     ),
   },
+  {
+    href: '/survey',
+    label: 'Kembali ke Survey',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+      </svg>
+    ),
+    external: true,
+  },
 ]
 
 export default function Sidebar({ userName }: { userName: string }) {
@@ -77,9 +87,11 @@ export default function Sidebar({ userName }: { userName: string }) {
             href={item.href}
             onClick={() => setMobileOpen(false)}
             className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-              isActive(item.href)
-                ? 'bg-emerald-500/20 text-emerald-300 shadow-sm'
-                : 'text-slate-300 hover:bg-white/10 hover:text-white'
+              (item as any).external
+                ? 'text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30 mt-2'
+                : isActive(item.href)
+                  ? 'bg-emerald-500/20 text-emerald-300 shadow-sm'
+                  : 'text-slate-300 hover:bg-white/10 hover:text-white'
             }`}
           >
             {item.icon}
