@@ -83,6 +83,34 @@ input:focus, textarea:focus, select:focus, button:focus-visible {
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
 }
 
+/* ===== Smooth Transitions ===== */
+.glass {
+  transition: all 0.2s ease;
+}
+
+/* ===== Table Styles ===== */
+table {
+  border-collapse: collapse;
+}
+
+th {
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* ===== Scrollbar for inner scroll ===== */
+.overflow-y-auto::-webkit-scrollbar {
+  width: 4px;
+}
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 2px;
+}
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
 /* ===== Mobile Input Fixes ===== */
 @media (max-width: 640px) {
   input, textarea, select {
