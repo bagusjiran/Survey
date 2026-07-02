@@ -46,6 +46,10 @@ export default function SurveyFormPage({ params }: { params: Promise<{ id: strin
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [alreadySubmitted, setAlreadySubmitted] = useState(false)
+  const [canEdit, setCanEdit] = useState(false)
+  const [editDeadline, setEditDeadline] = useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [timeLeft, setTimeLeft] = useState('')
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
   const showToast = (message: string, type: 'success' | 'error') => {
@@ -84,6 +88,8 @@ export default function SurveyFormPage({ params }: { params: Promise<{ id: strin
         // Check if already voted (vote is the mandatory part)
         if (checkData.alreadySubmitted) {
           setAlreadySubmitted(true)
+          setCanEdit(checkData.canEdit || false)
+          setEditDeadline(checkData.editDeadline || null)
         }
       } catch {
         showToast('Gagal memuat data', 'error')
@@ -162,6 +168,86 @@ export default function SurveyFormPage({ params }: { params: Promise<{ id: strin
     }
   }
 
+  // Countdown timer for edit deadline
+  useEffect(() => {
+    if (!editDeadline || alreadySubmitted && !canEdit) return
+    const interval = setInterval(() => {
+      const now = Date.now()
+      const end = new Date(editDeadline).getTime()
+      const diff = end - now
+      if (diff <= 0) {
+        setCanEdit(false)
+        setTimeLeft('')
+        clearInterval(interval)
+        return
+      }
+      const mins = Math.floor(diff / 60000)
+      const secs = Math.floor((diff % 60000) / 1000)
+      setTimeLeft(mins + 'm ' + secs + 's')
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [editDeadline, alreadySubmitted, canEdit])
+
+  // Handle edit submission
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!voteChoice) {
+      showToast('Harap pilih mahasiswa teraktif', 'error')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      // Step 1: Edit survey responses (if questions exist)
+      if (questions.length > 0) {
+        const surveyRes = await fetch('/api/survey', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            agendaId,
+            responses: Object.entries(responses).map(([questionId, responseText]) => ({
+              questionId,
+              responseText,
+            })),
+          }),
+        })
+
+        if (!surveyRes.ok) {
+          const data = await surveyRes.json()
+          showToast(data.error || 'Gagal mengupdate jawaban', 'error')
+          setSubmitting(false)
+          return
+        }
+      }
+
+      // Step 2: Edit vote
+      const voteRes = await fetch('/api/votes', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agendaId,
+          votedForIds: [voteChoice],
+        }),
+      })
+
+      if (!voteRes.ok) {
+        const data = await voteRes.json()
+        showToast(data.error || 'Gagal mengupdate vote', 'error')
+        setSubmitting(false)
+        return
+      }
+
+      showToast('Jawaban berhasil diupdate!', 'success')
+      setEditing(false)
+      setSubmitted(true)
+    } catch {
+      showToast('Terjadi kesalahan', 'error')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen animated-bg flex items-center justify-center">
@@ -170,8 +256,8 @@ export default function SurveyFormPage({ params }: { params: Promise<{ id: strin
     )
   }
 
-  // Success / Already submitted screen
-  if (submitted || alreadySubmitted) {
+  // Success / Already submitted screen (final — no more editing)
+  if (submitted || (alreadySubmitted && !canEdit && !editing)) {
     return (
       <VoteResultsScreen
         agendaId={agendaId}
@@ -212,13 +298,35 @@ export default function SurveyFormPage({ params }: { params: Promise<{ id: strin
           <h1 className="text-xl font-bold text-slate-800 mb-1">{agenda?.title}</h1>
           {agenda?.description && <p className="text-sm text-slate-500">{agenda.description}</p>}
           <p className="text-xs text-slate-400 mt-2">
-            {questions.length > 0
-              ? 'Isi pertanyaan berikut dan pilih mahasiswa teraktif'
-              : 'Pilih mahasiswa teraktif untuk kegiatan ini'}
+            {alreadySubmitted && canEdit
+              ? 'Anda sudah mengisi survey ini. Masih bisa diedit dalam waktu terbatas.'
+              : questions.length > 0
+                ? 'Isi pertanyaan berikut dan pilih mahasiswa teraktif'
+                : 'Pilih mahasiswa teraktif untuk kegiatan ini'}
           </p>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        {/* Edit Banner — shown when already submitted but can still edit */}
+        {alreadySubmitted && canEdit && !editing && (
+          <div className="glass rounded-2xl p-6 mb-6 border-2 border-amber-200 bg-amber-50/50 animate-slide-up">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-amber-800">Jawaban sudah terkirim</p>
+                <p className="text-xs text-amber-600 mt-1">
+                  Sisa waktu edit: <span className="font-bold">{timeLeft || '...'}</span>
+                </p>
+              </div>
+              <button
+                onClick={() => setEditing(true)}
+                className="px-5 py-2.5 rounded-xl bg-amber-500 text-white font-medium text-sm hover:bg-amber-600 transition-colors"
+              >
+                Edit Jawaban
+              </button>
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={alreadySubmitted ? handleEdit : handleSubmit}>
           {/* Questions (only if exist) */}
           {questions.length > 0 && (
             <div className="space-y-4 mb-6">
@@ -384,7 +492,9 @@ export default function SurveyFormPage({ params }: { params: Promise<{ id: strin
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
                 </svg>
-                {questions.length > 0 ? 'Kirim Survey & Vote' : 'Kirim Vote'}
+                {questions.length > 0
+                  ? (alreadySubmitted ? 'Update Survey & Vote' : 'Kirim Survey & Vote')
+                  : (alreadySubmitted ? 'Update Vote' : 'Kirim Vote')}
               </>
             )}
           </button>

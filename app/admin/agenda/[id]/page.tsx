@@ -48,6 +48,7 @@ export default function AgendaDetailPage({ params }: { params: Promise<{ id: str
   const [members, setMembers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddQ, setShowAddQ] = useState(false)
+  const [editingQ, setEditingQ] = useState<Question | null>(null)
   const [qForm, setQForm] = useState({ question_text: '', question_type: 'text', options: [''] })
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
@@ -133,7 +134,7 @@ export default function AgendaDetailPage({ params }: { params: Promise<{ id: str
   const handleDeleteQuestion = async (id: string) => {
     if (!confirm('Yakin ingin menghapus pertanyaan ini?')) return
     try {
-      const res = await fetch(`/api/questions?id=${id}`, { method: 'DELETE' })
+      const res = await fetch('/api/questions?id=' + id, { method: 'DELETE' })
       if (!res.ok) {
         showToast('Gagal menghapus pertanyaan', 'error')
         return
@@ -143,6 +144,60 @@ export default function AgendaDetailPage({ params }: { params: Promise<{ id: str
     } catch {
       showToast('Terjadi kesalahan', 'error')
     }
+  }
+
+  const startEdit = (q: Question) => {
+    setEditingQ(q)
+    setQForm({
+      question_text: q.question_text,
+      question_type: q.question_type,
+      options: q.options && q.options.length > 0 ? q.options : [''],
+    })
+    setShowAddQ(true)
+  }
+
+  const handleEditQuestion = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingQ) return
+    setSaving(true)
+    try {
+      const body: any = {
+        id: editingQ.id,
+        question_text: qForm.question_text,
+        question_type: qForm.question_type,
+      }
+      if (qForm.question_type === 'radio') {
+        body.options = qForm.options.filter((o) => o.trim() !== '')
+      }
+
+      const res = await fetch('/api/questions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        showToast(data.error || 'Gagal mengupdate pertanyaan', 'error')
+        return
+      }
+
+      showToast('Pertanyaan berhasil diupdate!', 'success')
+      setQForm({ question_text: '', question_type: 'text', options: [''] })
+      setEditingQ(null)
+      setShowAddQ(false)
+      fetchData()
+    } catch {
+      showToast('Terjadi kesalahan', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const cancelForm = () => {
+    setShowAddQ(false)
+    setEditingQ(null)
+    setQForm({ question_text: '', question_type: 'text', options: [''] })
   }
 
   const handleAdminVote = async () => {
@@ -246,18 +301,18 @@ export default function AgendaDetailPage({ params }: { params: Promise<{ id: str
       {activeTab === 'questions' && (
         <div>
           <button
-            onClick={() => setShowAddQ(!showAddQ)}
+            onClick={() => { if (editingQ) { cancelForm() } else { setShowAddQ(!showAddQ) } }}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 text-white font-medium text-sm hover:bg-emerald-600 transition-colors mb-4"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
-            Tambah Pertanyaan
+            {showAddQ ? 'Tutup Form' : 'Tambah Pertanyaan'}
           </button>
 
           {showAddQ && (
             <div className="glass rounded-2xl p-6 mb-4 animate-slide-up">
-              <form onSubmit={handleAddQuestion} className="space-y-4">
+              <form onSubmit={editingQ ? handleEditQuestion : handleAddQuestion} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Teks Pertanyaan</label>
                   <input
@@ -327,11 +382,11 @@ export default function AgendaDetailPage({ params }: { params: Promise<{ id: str
                     disabled={saving}
                     className="px-6 py-2.5 rounded-xl bg-emerald-500 text-white font-medium hover:bg-emerald-600 transition-colors disabled:opacity-60"
                   >
-                    {saving ? 'Menyimpan...' : 'Simpan'}
+                    {saving ? 'Menyimpan...' : (editingQ ? 'Update' : 'Simpan')}
                   </button>
                   <button
                     type="button"
-                    onClick={() => setShowAddQ(false)}
+                    onClick={cancelForm}
                     className="px-6 py-2.5 rounded-xl bg-slate-200 text-slate-600 font-medium hover:bg-slate-300 transition-colors"
                   >
                     Batal
@@ -378,15 +433,26 @@ export default function AgendaDetailPage({ params }: { params: Promise<{ id: str
                         </div>
                       )}
                     </div>
-                    <button
-                      onClick={() => handleDeleteQuestion(q.id)}
-                      className="text-red-400 hover:text-red-600 transition-colors p-1"
-                      title="Hapus pertanyaan"
-                    >
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => startEdit(q)}
+                        className="text-blue-400 hover:text-blue-600 transition-colors p-1"
+                        title="Edit pertanyaan"
+                      >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteQuestion(q.id)}
+                        className="text-red-400 hover:text-red-600 transition-colors p-1"
+                        title="Hapus pertanyaan"
+                      >
                       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                       </svg>
                     </button>
+                    </div>
                   </div>
                 </div>
               ))}

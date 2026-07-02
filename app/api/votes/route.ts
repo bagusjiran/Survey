@@ -163,3 +163,80 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Data tidak valid' }, { status: 400 })
   }
 }
+
+// PATCH: Edit vote (member, within 1 hour)
+const EDIT_TIME_LIMIT_MS = 60 * 60 * 1000 // 1 hour
+
+export async function PATCH(request: NextRequest) {
+  const session = await getSession()
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  try {
+    const { agendaId, votedForIds } = await request.json()
+
+    if (!agendaId || !votedForIds || !Array.isArray(votedForIds)) {
+      return NextResponse.json({ error: 'Data tidak lengkap' }, { status: 400 })
+    }
+
+    const maxVotes = session.isAdmin ? 2 : 1
+    if (votedForIds.length === 0 || votedForIds.length > maxVotes) {
+      return NextResponse.json({
+        error: session.isAdmin ? 'Admin bisa memilih 1-2 mahasiswa' : 'Pilih 1 mahasiswa',
+      }, { status: 400 })
+    }
+
+    if (votedForIds.includes(session.memberId)) {
+      return NextResponse.json({ error: 'Tidak bisa memilih diri sendiri' }, { status: 400 })
+    }
+
+    // Check time limit
+    const { data: existingVotes } = await supabase
+      .from('active_student_votes')
+      .select('created_at')
+      .eq('agenda_id', agendaId)
+      .eq('voter_id', session.memberId)
+      .order('created_at', { ascending: true })
+      .limit(1)
+
+    if (!existingVotes || existingVotes.length === 0) {
+      return NextResponse.json({ error: 'Anda belum memberikan vote' }, { status: 404 })
+    }
+
+    const submittedAt = new Date(existingVotes[0].created_at).getTime()
+    const now = Date.now()
+    if (now - submittedAt >= EDIT_TIME_LIMIT_MS) {
+      return NextResponse.json({
+        error: 'Batas waktu edit telah habis (1 jam setelah vote)',
+      }, { status: 403 })
+    }
+
+    // Delete old votes and insert new ones
+    const { error: deleteErr } = await supabase
+      .from('active_student_votes')
+      .delete()
+      .eq('agenda_id', agendaId)
+      .eq('voter_id', session.memberId)
+
+    if (deleteErr) {
+      return NextResponse.json({ error: 'Gagal menghapus vote lama' }, { status: 500 })
+    }
+
+    const inserts = votedForIds.map((votedId: string) => ({
+      agenda_id: agendaId,
+      voter_id: session.memberId,
+      voted_for_id: votedId,
+    }))
+
+    const { error: insertErr } = await supabase.from('active_student_votes').insert(inserts)
+
+    if (insertErr) {
+      return NextResponse.json({ error: 'Gagal menyimpan vote baru' }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch {
+    return NextResponse.json({ error: 'Data tidak valid' }, { status: 400 })
+  }
+}

@@ -46,7 +46,6 @@ export async function POST(request: NextRequest) {
       sort_order: sort_order || 0,
     }
 
-    // Try with options first (for radio type)
     let insertData = { ...baseData }
     if (question_type === 'radio' && options && Array.isArray(options) && options.length > 0) {
       insertData.options = options
@@ -58,15 +57,12 @@ export async function POST(request: NextRequest) {
       .select()
       .single()
 
-    // Fallback: if options column doesn't exist, retry without it
     if (error && error.message?.includes('options')) {
-      console.warn('options column not found, retrying without it...')
       const fallback = await supabase
         .from('survey_questions')
         .insert(baseData)
         .select()
         .single()
-
       if (fallback.error) {
         return NextResponse.json({ error: 'Gagal menambah pertanyaan' }, { status: 500 })
       }
@@ -74,9 +70,7 @@ export async function POST(request: NextRequest) {
       error = null
     }
 
-    // Fallback: if radio type not in CHECK constraint, use text
     if (error && error.message?.includes('survey_questions_question_type_check')) {
-      console.warn('radio type not in CHECK, retrying as text...')
       baseData.question_type = 'text'
       delete baseData.options
       const fallback = await supabase
@@ -84,7 +78,6 @@ export async function POST(request: NextRequest) {
         .insert(baseData)
         .select()
         .single()
-
       if (fallback.error) {
         return NextResponse.json({ error: 'Gagal menambah pertanyaan' }, { status: 500 })
       }
@@ -97,6 +90,55 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ question: data }, { status: 201 })
+  } catch {
+    return NextResponse.json({ error: 'Data tidak valid' }, { status: 400 })
+  }
+}
+
+// PATCH: Edit pertanyaan (admin only)
+export async function PATCH(request: NextRequest) {
+  const session = await getSession()
+  if (!session || !session.isAdmin) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  try {
+    const { id, question_text, question_type, options, sort_order } = await request.json()
+
+    if (!id) {
+      return NextResponse.json({ error: 'ID pertanyaan harus diisi' }, { status: 400 })
+    }
+
+    if (!question_text || !question_text.trim()) {
+      return NextResponse.json({ error: 'Teks pertanyaan harus diisi' }, { status: 400 })
+    }
+
+    const updateData: any = {
+      question_text: question_text.trim(),
+    }
+
+    if (question_type) {
+      updateData.question_type = question_type
+    }
+    if (sort_order !== undefined) {
+      updateData.sort_order = sort_order
+    }
+    if (question_type === 'radio' && options && Array.isArray(options)) {
+      updateData.options = options
+    }
+
+    const { data, error } = await supabase
+      .from('survey_questions')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) {
+      return NextResponse.json({ error: 'Gagal mengupdate pertanyaan' }, { status: 500 })
+    }
+
+    return NextResponse.json({ question: data })
   } catch {
     return NextResponse.json({ error: 'Data tidak valid' }, { status: 400 })
   }
