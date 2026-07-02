@@ -2,6 +2,47 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ===== Dark Mode Base ===== */
+@layer base {
+  .dark {
+    color-scheme: dark;
+  }
+  .dark .glass {
+    background: rgba(30, 41, 59, 0.75);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  .dark .glass-dark {
+    background: rgba(15, 23, 42, 0.85);
+  }
+  .dark .login-page,
+  .dark .survey-page {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  }
+  .dark .login-card {
+    background: #1e293b;
+    border-color: #334155;
+  }
+  .dark .login-select,
+  .dark .login-input {
+    background-color: #0f172a;
+    border-color: #334155;
+    color: #e2e8f0;
+  }
+  .dark .login-select:focus,
+  .dark .login-input:focus {
+    border-color: #10b981;
+    background-color: #0f172a;
+  }
+  .dark .login-label {
+    color: #94a3b8;
+  }
+  .dark .login-error {
+    background: #451a1a;
+    border-color: #7f1d1d;
+    color: #fca5a5;
+  }
+}
+
 /* ===== Smooth Scroll ===== */
 html {
   scroll-behavior: smooth;
